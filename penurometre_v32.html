@@ -919,97 +919,15 @@ rimLight.position.set(-5, -3, -2);
 scene.add(rimLight);
 
 // Globe principal
+const textureLoader = new THREE.TextureLoader();
 const globeGeo = new THREE.SphereGeometry(1, 64, 64);
+const earthTexture = textureLoader.load('./earth_atmos_2048.jpg');
 const globeMat = new THREE.MeshPhongMaterial({
-  color: 0x040d1f,
-  emissive: 0x020810,
-  specular: 0x1a3a6a,
-  shininess: 60,
+  map: earthTexture, specular: 0x2244aa, shininess: 25,
 });
 const globe = new THREE.Mesh(globeGeo, globeMat);
 scene.add(globe);
 
-// Océans — calque légèrement brillant
-const oceanGeo = new THREE.SphereGeometry(1.001, 64, 64);
-const oceanMat = new THREE.MeshPhongMaterial({
-  color: 0x061428,
-  emissive: 0x020810,
-  specular: 0x4fc3f7,
-  shininess: 80,
-  transparent: true,
-  opacity: 0.6,
-});
-scene.add(new THREE.Mesh(oceanGeo, oceanMat));
-
-// ── CONTINENTS PROCÉDURAUX ──────────────────────────────────────────
-// Dessinés point par point depuis coordonnées approximatives
-function addLandmass(latMin, latMax, lonMin, lonMax, density, color) {
-  const geo = new THREE.BufferGeometry();
-  const positions = [];
-  const step = density;
-  for (let lat = latMin; lat <= latMax; lat += step) {
-    for (let lon = lonMin; lon <= lonMax; lon += step) {
-      // Bruit pour éviter la grille parfaite
-      const jLat = lat + (Math.random() - 0.5) * step * 1.5;
-      const jLon = lon + (Math.random() - 0.5) * step * 1.5;
-      const phi = (90 - jLat) * Math.PI / 180;
-      const theta = (jLon + 180) * Math.PI / 180;
-      const r = 1.002 + Math.random() * 0.003;
-      positions.push(
-        -r * Math.sin(phi) * Math.cos(theta),
-         r * Math.cos(phi),
-         r * Math.sin(phi) * Math.sin(theta)
-      );
-    }
-  }
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const mat = new THREE.PointsMaterial({ color, size: 0.008, transparent: true, opacity: 0.85 });
-  scene.add(new THREE.Points(geo, mat));
-}
-
-// Couleurs continents
-const C_LAND   = 0x1a3a20;  // vert sombre
-const C_ARID   = 0x2a2a14;  // désert
-const C_ARCTIC = 0x2a3a4a;  // glace
-
-// Amérique du Nord
-addLandmass(25, 70, -165, -55, 2.5, C_LAND);
-// Amérique Centrale + Caraïbes
-addLandmass(8, 25, -92, -60, 2.0, C_LAND);
-// Amérique du Sud
-addLandmass(-55, 12, -82, -34, 2.5, C_LAND);
-// Europe
-addLandmass(36, 71, -10, 40, 2.0, C_LAND);
-// Scandinavie
-addLandmass(55, 71, 4, 30, 2.0, C_LAND);
-// Afrique du Nord (désert)
-addLandmass(15, 37, -18, 42, 2.5, C_ARID);
-// Afrique sub-saharienne
-addLandmass(-35, 15, -18, 52, 2.5, C_LAND);
-// Moyen-Orient
-addLandmass(12, 42, 32, 65, 2.5, C_ARID);
-// Asie centrale (steppe/désert)
-addLandmass(30, 55, 50, 100, 2.5, C_ARID);
-// Asie du Sud
-addLandmass(5, 35, 65, 100, 2.0, C_LAND);
-// Asie du Sud-Est
-addLandmass(-8, 25, 95, 140, 2.0, C_LAND);
-// Chine / Extrême-Orient
-addLandmass(20, 55, 100, 145, 2.0, C_LAND);
-// Sibérie / Asie du Nord
-addLandmass(50, 75, 60, 180, 3.0, C_ARID);
-// Japon / Corée
-addLandmass(30, 46, 128, 146, 1.5, C_LAND);
-// Australie
-addLandmass(-40, -12, 114, 154, 2.5, C_ARID);
-// Nouvelle-Zélande
-addLandmass(-47, -34, 166, 178, 1.5, C_LAND);
-// Groenland
-addLandmass(60, 83, -55, -18, 2.5, C_ARCTIC);
-// Arctique
-addLandmass(75, 90, -180, 180, 4.0, C_ARCTIC);
-// Antarctique
-addLandmass(-90, -68, -180, 180, 4.0, C_ARCTIC);
 // ────────────────────────────────────────────────────────────────────
 
 // Sphère wireframe (grille géographique)
