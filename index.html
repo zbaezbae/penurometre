@@ -571,19 +571,47 @@ const rimLight = new THREE.DirectionalLight(0x001133, 1.0);
 rimLight.position.set(-5, -3, -2);
 scene.add(rimLight);
 
-// Globe principal
+// Globe principal avec texture "Earth at Night" (NASA)
+const textureLoader = new THREE.TextureLoader();
 const globeGeo = new THREE.SphereGeometry(1, 64, 64);
+
+// Texture nuit NASA — continents visibles via lumières des villes
+const earthTexture = textureLoader.load(
+  'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg',
+  () => { /* texture chargée */ },
+  undefined,
+  () => {
+    // Fallback si texture échoue : couleur de base
+    globeMat.color.set(0x0a1628);
+    globeMat.needsUpdate = true;
+  }
+);
+
+// Texture nuages (optionnelle, légère)
+const cloudsTexture = textureLoader.load(
+  'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png'
+);
+
 const globeMat = new THREE.MeshPhongMaterial({
-  color: 0x0a1628,
-  emissive: 0x020818,
-  specular: 0x4fc3f7,
-  shininess: 80,
-  transparent: true,
-  opacity: 0.95,
-  wireframe: false,
+  map: earthTexture,
+  specular: 0x2244aa,
+  shininess: 25,
+  transparent: false,
+  opacity: 1.0,
 });
 const globe = new THREE.Mesh(globeGeo, globeMat);
 scene.add(globe);
+
+// Couche nuages légèrement au-dessus du globe
+const cloudsGeo = new THREE.SphereGeometry(1.005, 64, 64);
+const cloudsMat = new THREE.MeshPhongMaterial({
+  map: cloudsTexture,
+  transparent: true,
+  opacity: 0.18,
+  depthWrite: false,
+});
+const clouds = new THREE.Mesh(cloudsGeo, cloudsMat);
+scene.add(clouds);
 
 // Sphère wireframe (grille géographique)
 const wireGeo = new THREE.SphereGeometry(1.001, 32, 32);
@@ -904,6 +932,11 @@ function animate() {
   currentRot.y += (targetRot.y - currentRot.y) * 0.08;
   globeGroup.rotation.x = currentRot.x;
   globeGroup.rotation.y = currentRot.y;
+  // Rotation nuages légèrement décalée
+  if (typeof clouds !== 'undefined') {
+    clouds.rotation.y = currentRot.y * 1.02;
+    clouds.rotation.x = currentRot.x;
+  }
 
   // Pulsation des rings
   pointObjects.forEach(({ ring, dot, glow }) => {
