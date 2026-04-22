@@ -1,0 +1,2348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Pénuromètre</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  :root {
+    --bg: #050810;
+    --bg2: #080d1a;
+    --cold: #4fc3f7;
+    --cold-dim: #1a4a6b;
+    --critical: #ff3d57;
+    --tension: #ff9800;
+    --watch: #ffd600;
+    --ok: #00e5a0;
+    --text: #c8d8e8;
+    --text-dim: #4a6070;
+    --panel: rgba(8, 16, 32, 0.85);
+    --border: rgba(79, 195, 247, 0.15);
+  }
+
+  /* ─── THEME CLAIR (palette ANSM) ─── */
+  body.theme-light {
+    --bg: #f0f4f8;
+    --bg2: #e4ecf4;
+    --cold: #0070b8;
+    --cold-dim: #b0cce4;
+    --critical: #d32f2f;
+    --tension: #e65100;
+    --watch: #f9a825;
+    --ok: #2e7d32;
+    --text: #1a2b3c;
+    --text-dim: #5a7080;
+    --panel: rgba(255, 255, 255, 0.92);
+    --border: rgba(0, 112, 184, 0.2);
+  }
+
+  body.theme-light #logo h1 { color: #1a2b3c; }
+  body.theme-light #live-badge { color: var(--cold); }
+  body.theme-light #live-dot { background: var(--cold); }
+  body.theme-light #scanlines { display: none; }
+  body.theme-light #grid { display: none; }
+  body.theme-light #vignette { opacity: 0.3; }
+  body.theme-light #tooltip {
+    background: rgba(255,255,255,0.97);
+    border-color: var(--cold-dim);
+    color: var(--text);
+  }
+  body.theme-light .tt-drug { color: #1a2b3c; }
+  body.theme-light .tt-iupac { color: rgba(0,112,184,0.7); }
+  body.theme-light .tt-formula { color: var(--cold); }
+  body.theme-light .panel-block {
+    background: rgba(255,255,255,0.95);
+    border-color: rgba(0,112,184,0.15);
+  }
+
+  /* ─── THEME BUTTONS ─── */
+  #theme-toggle {
+    position: fixed;
+    top: 18px;
+    right: 260px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px;
+    backdrop-filter: blur(8px);
+  }
+
+  .theme-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    transition: background 0.15s;
+    line-height: 1;
+  }
+
+  .theme-btn:hover { background: rgba(128,128,128,0.15); }
+  .theme-btn.active { background: var(--cold); }
+  body.theme-light .theme-btn.active { background: var(--cold); }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    cursor: crosshair;
+  }
+
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  canvas { display: block; }
+
+  /* ─── HEADER ─── */
+  #header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    padding: 20px 28px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  #logo h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    font-style: italic;
+    letter-spacing: -0.5px;
+    color: #fff;
+    line-height: 1;
+  }
+
+  #logo h1 span {
+    color: var(--cold);
+  }
+
+  #logo p {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  #live-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--cold);
+    text-transform: uppercase;
+  }
+
+  #live-dot {
+    width: 6px; height: 6px;
+    background: var(--cold);
+    border-radius: 50%;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* ─── LEFT PANEL ─── */
+  #panel-left {
+    position: absolute;
+    left: 20px;
+    top: 80px;
+    bottom: 20px;
+    width: 240px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  #panel-left::-webkit-scrollbar { display: none; }
+
+  .panel-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  /* Filters */
+  .filter-group { margin-bottom: 12px; }
+  .filter-group:last-child { margin-bottom: 0; }
+  .filter-title {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 4px 0;
+    width: 100%;
+    text-align: left;
+    transition: color 0.2s;
+  }
+
+  .filter-btn:hover { color: var(--text); background: rgba(128,128,128,0.1); border-radius: 3px; }
+  .filter-btn.active { color: var(--text); }
+  body.theme-light .filter-btn:hover { color: #1a2b3c; background: rgba(0,112,184,0.08); }
+  body.theme-light .filter-btn { color: #1a2b3c; }
+
+  /* Boutons sévérité actifs */
+  [data-severity].active {
+    color: #fff !important;
+    border-radius: 3px;
+    padding: 2px 4px;
+  }
+  [data-severity="all"].active    { background: var(--cold) !important; }
+  [data-severity="critique"].active { background: #ff3d57 !important; }
+  [data-severity="tension"].active  { background: #ff9800 !important; }
+  [data-severity="vigilance"].active { background: #888800 !important; color: #fff !important; }
+
+  .filter-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .filter-checkbox {
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--text-dim);
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    transition: all 0.15s;
+  }
+
+  .filter-checkbox.checked {
+    background: var(--cold);
+    border-color: var(--cold);
+    color: #000;
+    font-weight: 900;
+  }
+
+  .filter-btn.active-cause .filter-checkbox,
+  .filter-btn.active-class .filter-checkbox {
+    background: var(--cold);
+    border-color: var(--cold);
+    color: #000;
+    font-weight: 900;
+  }
+
+  .filter-count {
+    margin-left: auto;
+    font-size: 9px;
+    color: var(--text-dim);
+    background: rgba(79,195,247,0.08);
+    padding: 1px 5px;
+    border-radius: 8px;
+    min-width: 20px;
+    text-align: center;
+  }
+
+  .filter-count.has-count {
+    color: var(--cold);
+    background: rgba(79,195,247,0.15);
+  }
+
+  /* Stats */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(79,195,247,0.06);
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-label { font-size: 9px; color: var(--text-dim); }
+  .stat-value { font-size: 14px; font-weight: 700; color: var(--cold); }
+  .stat-value.critical { color: var(--critical); }
+
+  /* ─── RIGHT PANEL ─── */
+  #panel-right {
+    position: absolute;
+    right: 20px;
+    top: 80px;
+    width: 220px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Legend */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 10px;
+  }
+
+  .legend-icon {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── TOOLTIP ─── */
+  #tooltip {
+    position: absolute;
+    z-index: 100;
+    background: rgba(5, 12, 28, 0.96);
+    border: 1px solid var(--cold-dim);
+    padding: 14px 16px;
+    pointer-events: none;
+    display: none;
+    max-width: 300px;
+    backdrop-filter: blur(16px);
+  }
+
+  #tooltip.visible { display: block; }
+
+  .tt-drug {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #fff;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .tt-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--text-dim);
+    padding: 2px 0;
+  }
+
+  .tt-val { color: var(--text); }
+
+  .tt-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .badge-critique { background: rgba(255,61,87,0.15); color: var(--critical); border: 1px solid rgba(255,61,87,0.3); }
+  .badge-tension { background: rgba(255,152,0,0.15); color: var(--tension); border: 1px solid rgba(255,152,0,0.3); }
+  .badge-vigilance { background: rgba(255,214,0,0.15); color: var(--watch); border: 1px solid rgba(255,214,0,0.3); }
+
+  /* source badge */
+  .tt-src { display:inline-flex; align-items:center; gap:4px; font-size:8px; padding:2px 7px; border-radius:3px; margin-bottom:8px; letter-spacing:1px; font-weight:700; }
+  .tt-src.live-fda  { background:rgba(0,229,160,0.12); border:1px solid rgba(0,229,160,0.35); color:#00e5a0; }
+  .tt-src.live-ansm { background:rgba(79,195,247,0.12); border:1px solid rgba(79,195,247,0.35); color:#4fc3f7; }
+  .tt-src.static    { background:rgba(150,170,200,0.08); border:1px solid rgba(150,170,200,0.2); color:#7a90a8; }
+  .tt-src .pulse    { width:5px; height:5px; border-radius:50%; background:currentColor; animation:blink 1.4s ease-in-out infinite; display:inline-block; }
+
+  /* indications */
+  .tt-tags { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0 8px; }
+  .tt-tag  { font-size:8px; padding:2px 6px; border-radius:10px; font-weight:700; letter-spacing:0.5px; }
+
+  /* chimie + marchés */
+  .tt-sec  { font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); margin:8px 0 4px; }
+  .tt-iupac   { font-size:9px; color:rgba(79,195,247,0.6); font-style:italic; line-height:1.4; margin-bottom:3px; word-break:break-word; }
+  .tt-formula { font-size:11px; color:var(--cold); font-weight:700; letter-spacing:1px; margin-bottom:2px; }
+  .tt-markets { display:flex; flex-direction:column; gap:3px; margin-bottom:4px; }
+  .tt-mrow    { display:flex; align-items:baseline; gap:6px; }
+  .tt-mflag   { font-size:12px; flex-shrink:0; width:18px; }
+  .tt-mcode   { font-size:9px; color:var(--text-dim); flex-shrink:0; width:22px; }
+  .tt-mval    { font-size:9px; color:var(--text); line-height:1.3; }
+  .tt-div     { border-top:1px solid var(--border); margin:8px 0 6px; }
+
+  /* ─── BOTTOM BAR ─── */
+  #bottom-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 280px;
+    right: 260px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+
+  #ticker {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  #ticker span {
+    color: var(--cold);
+  }
+
+  /* ─── SCANLINES ─── */
+  #scanlines {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+  }
+
+  /* ─── VIGNETTE ─── */
+  #vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
+  }
+
+  /* ─── GRID OVERLAY ─── */
+  #grid {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image:
+      linear-gradient(rgba(79,195,247,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,195,247,1) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Scroll hint */
+  #hint {
+    position: absolute;
+    bottom: 22px;
+    right: 240px;
+    z-index: 10;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    pointer-events: none;
+    animation: fadeHint 4s ease 2s forwards;
+    opacity: 1;
+  }
+
+  @keyframes fadeHint {
+    to { opacity: 0; }
+  }
+  /* ─── PLUIE ─── */
+  #rain-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+    overflow: hidden;
+  }
+
+  .rain-drop {
+    position: absolute;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, rgba(120,180,255,0.5));
+    border-radius: 1px;
+    animation: rain-fall linear infinite;
+  }
+
+  body.theme-light .rain-drop {
+    background: linear-gradient(to bottom, transparent, rgba(0,80,180,0.25));
+  }
+
+  @keyframes rain-fall {
+    from { transform: translateY(-30px) translateX(0); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 0.6; }
+    to   { transform: translateY(100vh) translateX(10px); opacity: 0; }
+  }
+
+
+
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE — iPad / Mobile
+  ═══════════════════════════════════════════ */
+
+  /* ─── DRAWER BOUTON (mobile only) ─── */
+  #drawer-toggle {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 8px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--cold);
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    text-transform: uppercase;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* ─── DRAWER PANEL (mobile only) ─── */
+  #drawer {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 150;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    max-height: 70vh;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    padding: 16px 20px 32px;
+    scrollbar-width: none;
+  }
+
+  #drawer::-webkit-scrollbar { display: none; }
+  #drawer.open { transform: translateY(0); }
+
+  /* Poignée du drawer */
+  #drawer-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+
+  /* Stats compactes dans le drawer */
+  #drawer-stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .drawer-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 60px;
+  }
+
+  .drawer-stat-val { font-size: 18px; font-weight: 700; color: var(--cold); }
+  .drawer-stat-val.critical { color: var(--critical); }
+  .drawer-stat-label { font-size: 8px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; text-align: center; }
+
+  /* ─── TOOLTIP MOBILE ─── */
+  @media (max-width: 900px) {
+    /* Masquer les panels latéraux */
+    #panel-left, #panel-right { display: none !important; }
+
+    /* Afficher drawer toggle */
+    #drawer-toggle { display: flex; }
+    #drawer { display: block; }
+
+    /* Header compact */
+    #header { padding: 12px 16px 0; }
+    #logo h1 { font-size: 20px; }
+    #logo p { display: none; }
+    #live-badge { font-size: 8px; }
+
+    /* Theme toggle repositionné */
+    #theme-toggle {
+      top: 12px;
+      right: 16px;
+    }
+
+    /* Bottom bar masquée (remplacée par drawer toggle) */
+    #bottom-bar { display: none; }
+    #hint { display: none; }
+
+    /* Tooltip en bas sur mobile */
+    #tooltip {
+      position: fixed !important;
+      bottom: 80px !important;
+      left: 12px !important;
+      right: 12px !important;
+      top: auto !important;
+      max-width: none !important;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+
+    /* Drawer sections */
+    .drawer-section-title {
+      font-size: 8px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin: 12px 0 8px;
+    }
+
+    .drawer-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .drawer-filter-btn {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 5px 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .drawer-filter-btn.active {
+      border-color: var(--cold);
+      color: var(--cold);
+      background: rgba(79,195,247,0.1);
+    }
+
+    .drawer-filter-btn.active-critique { border-color:#ff3d57; color:#ff3d57; background:rgba(255,61,87,0.1); }
+    .drawer-filter-btn.active-tension  { border-color:#ff9800; color:#ff9800; background:rgba(255,152,0,0.1); }
+    .drawer-filter-btn.active-vigilance{ border-color:#ffd600; color:#886600; background:rgba(255,214,0,0.1); }
+  }
+
+  @media (max-width: 480px) {
+    #logo h1 { font-size: 17px; }
+  }
+
+
+  /* ─── BARRE NAV ─── */
+  #nav-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 4px;
+    backdrop-filter: blur(12px);
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .nav-btn:hover { color: var(--text); background: rgba(128,128,128,0.1); }
+  .nav-btn.active {
+    background: var(--cold);
+    color: #fff;
+  }
+  body.theme-light .nav-btn.active { background: var(--cold); color: #fff; }
+
+  /* Indicateur live */
+  #live-indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #444;
+    flex-shrink: 0;
+    transition: background 0.3s;
+    margin: 0 4px;
+  }
+
+  #live-indicator.active {
+    background: #ff3d57;
+    animation: blink 1.4s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(255,61,87,0.6);
+  }
+
+  /* Repositionner theme-toggle et live-badge avec la nav */
+  #theme-toggle {
+    top: 12px;
+    right: 16px;
+  }
+
+  /* Interrupteur live/statique */
+  #live-switch {
+    position: fixed;
+    top: 62px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 5px 10px;
+    backdrop-filter: blur(8px);
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  #live-switch:hover { border-color: var(--cold); color: var(--text); }
+  #live-switch.live-on { border-color: #ff3d57; color: #ff3d57; }
+
+  #live-switch-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #444;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  #live-switch.live-on #live-switch-dot {
+    background: #ff3d57;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+
+  /* Date de mise à jour */
+  #data-date {
+    position: fixed;
+    top: 100px;
+    right: 16px;
+    z-index: 200;
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-align: right;
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    #nav-bar { top: 8px; padding: 3px; }
+    .nav-btn { padding: 5px 10px; font-size: 9px; }
+    #live-switch { top: auto; bottom: 68px; right: 12px; }
+    #data-date { display: none !important; }
+  }
+
+</style>
+</head>
+<body class="theme-light">
+
+<div id="rain-layer"></div>
+<div id="grid"></div>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+<div id="canvas-container"></div>
+
+<!-- THEME TOGGLE -->
+<!-- BARRE DE NAVIGATION -->
+<div id="nav-bar">
+  <a class="nav-btn active" href="index.html" id="nav-globe">🌍 Globe</a>
+  <a class="nav-btn" href="actualites.html" id="nav-actu">📰 Actualités</a>
+  <a class="nav-btn" href="modele.html" id="nav-modele">📊 Modèle</a>
+  <div id="live-indicator" title="Statut données live"></div>
+</div>
+
+<!-- THEME TOGGLE -->
+<div id="theme-toggle">
+  <button class="theme-btn active" id="btn-light" onclick="setTheme('light')" title="Mode clair">☀️</button>
+  <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')" title="Mode sobre">🌙</button>
+</div>
+
+<!-- INTERRUPTEUR LIVE/STATIQUE -->
+<div id="live-switch" onclick="toggleLiveMode()" title="Basculer données live / statiques">
+  <div id="live-switch-dot"></div>
+  <span id="live-switch-label">Statique</span>
+</div>
+<div id="data-date"></div>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="logo">
+    <h1>Le <span>Pénuro</span>mètre</h1>
+    <p>Surveillance mondiale des pénuries médicamenteuses</p>
+  </div>
+  <div id="live-badge">
+    <div id="live-dot"></div>
+    <span>Données actives — 2022–2025</span>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div id="panel-left">
+
+  <div class="panel-block">
+    <div class="panel-label">Statistiques</div>
+    <div class="stat-row">
+      <span class="stat-label">Total pénuries</span>
+      <span class="stat-value" id="stat-total">45</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Niveau critique</span>
+      <span class="stat-value critical" id="stat-critical">12</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Pays touchés</span>
+      <span class="stat-value" id="stat-countries">18</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Classes thérap.</span>
+      <span class="stat-value" id="stat-classes">9</span>
+    </div>
+  </div>
+
+  <div class="panel-block">
+    <div class="panel-label">Filtrer par sévérité</div>
+    <button class="filter-btn active" data-severity="all" onclick="setSeverity('all')">
+      <div class="filter-checkbox checked">✓</div>
+      <span style="flex:1;text-align:left">Toutes</span>
+      <span class="filter-count has-count" id="count-all">45</span>
+    </button>
+    <button class="filter-btn" data-severity="critique" onclick="setSeverity('critique')">
+      <div class="filter-checkbox" style="border-color:#ff3d57"></div>
+      <span style="flex:1;text-align:left">Critique</span>
+      <span class="filter-count" id="count-critique">17</span>
+    </button>
+    <button class="filter-btn" data-severity="tension" onclick="setSeverity('tension')">
+      <div class="filter-checkbox" style="border-color:#ff9800"></div>
+      <span style="flex:1;text-align:left">Tension</span>
+      <span class="filter-count" id="count-tension">19</span>
+    </button>
+    <button class="filter-btn" data-severity="vigilance" onclick="setSeverity('vigilance')">
+      <div class="filter-checkbox" style="border-color:#ffd600"></div>
+      <span style="flex:1;text-align:left">Vigilance</span>
+      <span class="filter-count" id="count-vigilance">8</span>
+    </button>
+  </div>
+
+  <div class="panel-block">
+    <div class="panel-label">Filtrer par cause</div>
+    <div id="cause-filters"></div>
+  </div>
+
+  <div class="panel-block">
+    <div class="panel-label">Classe thérapeutique</div>
+    <div id="class-filters"></div>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div id="panel-right">
+  <div class="panel-block">
+    <div class="panel-label">Légende</div>
+    <div class="legend-item"><div class="legend-icon" style="background:#ff3d57; box-shadow:0 0 6px #ff3d57"></div> Critique — rupture avérée</div>
+    <div class="legend-item"><div class="legend-icon" style="background:#ff9800; box-shadow:0 0 6px #ff9800"></div> Tension — stock bas</div>
+    <div class="legend-item"><div class="legend-icon" style="background:#ffd600; box-shadow:0 0 6px #ffd600"></div> Vigilance — surveillance</div>
+    <div style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
+      <div class="legend-item">
+        <div style="width:30px; height:1px; background: linear-gradient(90deg, #4fc3f7, transparent)"></div>
+        Flux supply chain
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-block" id="source-block">
+    <div class="panel-label">Sources de données</div>
+    <div style="font-size:9px; color:var(--text-dim); line-height:1.7">
+      <div>→ openFDA Drug Shortages API</div>
+      <div>→ ANSM (France)</div>
+      <div>→ EMA (Europe)</div>
+      <div>→ WHO Essential Medicines</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip">
+  <div class="tt-drug" id="tt-drug">—</div>
+  <div id="tt-badge" class="tt-badge">—</div>
+  <div id="tt-src" class="tt-src static">Source documentee</div>
+  <div class="tt-tags" id="tt-tags"></div>
+  <div class="tt-sec">Identification chimique</div>
+  <div class="tt-iupac" id="tt-iupac">—</div>
+  <div class="tt-formula" id="tt-formula">—</div>
+  <div class="tt-sec">Appellations commerciales</div>
+  <div class="tt-markets" id="tt-markets"></div>
+  <div class="tt-div"></div>
+  <div class="tt-row"><span>Pays</span><span class="tt-val" id="tt-country">—</span></div>
+  <div class="tt-row"><span>Cause</span><span class="tt-val" id="tt-cause">—</span></div>
+  <div class="tt-row"><span>Classe</span><span class="tt-val" id="tt-class">—</span></div>
+  <div class="tt-row"><span>Source</span><span class="tt-val" id="tt-source">—</span></div>
+  <div class="tt-row"><span>Depuis</span><span class="tt-val" id="tt-since">—</span></div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottom-bar">
+  <div id="ticker">
+    Cliquer sur un point pour le détail &nbsp;·&nbsp;
+    <span>Faire pivoter</span> le globe au clic &nbsp;·&nbsp;
+    Scroll pour zoomer
+  </div>
+</div>
+
+<div id="hint">↕ Scroll · ↔ Drag · Click</div>
+
+<!-- DRAWER TOGGLE (mobile) -->
+<button id="drawer-toggle" onclick="toggleDrawer()">
+  <span>☰</span> Filtres &amp; Stats
+</button>
+
+<!-- DRAWER PANEL (mobile) -->
+<div id="drawer">
+  <div id="drawer-handle"></div>
+
+  <!-- Stats compactes -->
+  <div id="drawer-stats">
+    <div class="drawer-stat">
+      <span class="drawer-stat-val" id="d-total">45</span>
+      <span class="drawer-stat-label">Pénuries</span>
+    </div>
+    <div class="drawer-stat">
+      <span class="drawer-stat-val critical" id="d-critique">17</span>
+      <span class="drawer-stat-label">Critiques</span>
+    </div>
+    <div class="drawer-stat">
+      <span class="drawer-stat-val" id="d-pays">18</span>
+      <span class="drawer-stat-label">Pays</span>
+    </div>
+    <div class="drawer-stat">
+      <span class="drawer-stat-val" id="d-classes">9</span>
+      <span class="drawer-stat-label">Classes</span>
+    </div>
+  </div>
+
+  <!-- Filtre sévérité -->
+  <div class="drawer-section-title">Sévérité</div>
+  <div class="drawer-filters" id="d-sev-filters">
+    <button class="drawer-filter-btn active" data-dsev="all" onclick="drawerSev('all')">Toutes</button>
+    <button class="drawer-filter-btn" data-dsev="critique" onclick="drawerSev('critique')">🔴 Critique</button>
+    <button class="drawer-filter-btn" data-dsev="tension" onclick="drawerSev('tension')">🟠 Tension</button>
+    <button class="drawer-filter-btn" data-dsev="vigilance" onclick="drawerSev('vigilance')">🟡 Vigilance</button>
+  </div>
+
+  <!-- Filtre cause -->
+  <div class="drawer-section-title">Cause</div>
+  <div class="drawer-filters" id="d-cause-filters"></div>
+
+  <!-- Filtre classe -->
+  <div class="drawer-section-title">Classe thérapeutique</div>
+  <div class="drawer-filters" id="d-class-filters"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+
+// ═══════════════════════════════════════════
+//  DONNÉES — 35 pénuries documentées
+// ═══════════════════════════════════════════
+const SHORTAGES = [
+  // ── CRITIQUE ──────────────────────────────────────────────────
+  {
+    drug:"Amoxicilline 500mg", country:"France", lat:46.2, lon:2.3, severity:"critique",
+    cause:"Concentration fabrication", class:"Antibiotiques", source:"ANSM", since:"2022-11",
+    supply_from:[[31.0,121.4],[28.6,77.2]],
+    iupac:"Acide (2S,5R,6R)-6-[(R)-2-amino-2-(4-hydroxyphényl)acétamido]-3,3-diméthyl-7-oxo-4-thia-1-azabicyclo[3.2.0]heptane-2-carboxylique",
+    formula:"C₁₆H₁₉N₃O₅S",
+    markets:{fr:"Amoxicilline Sandoz / Clamoxyl",us:"Amoxil / Trimox",uk:"Amoxicillin Accord",de:"Amoxi-1A Pharma / Infectomox",be:"Amoxicilline EG / Flemoxin",cn:"阿莫西林 (Ā mò xī lín)",in:"Mox / Novamox"}
+  },
+  {
+    drug:"Amoxicilline/Acide clavulanique", country:"France", lat:47.0, lon:1.0, severity:"critique",
+    cause:"Demande excédentaire", class:"Antibiotiques", source:"ANSM", since:"2022-12",
+    supply_from:[[31.0,121.4]],
+    iupac:"Amoxicilline + sel de potassium de l'acide clavulanique",
+    formula:"C₁₆H₁₉N₃O₅S + C₈H₈KNO₅",
+    markets:{fr:"Augmentin / Amoxicilline/Acide clav. Biogaran",us:"Augmentin / Amoclan",uk:"Augmentin / Co-amoxiclav Sandoz",de:"Augmentan / Amoxclav Hexal",be:"Augmentin / Clavumox",cn:"阿莫西林克拉维酸钒 / 安灭菌",in:"Augmentin / Clavam"}
+  },
+  {
+    drug:"Cisplatine (chimiothérapie)", country:"USA", lat:38.9, lon:-77.0, severity:"critique",
+    cause:"Fermeture usine Intas", class:"Oncologie", source:"FDA", since:"2023-02",
+    supply_from:[[23.0,72.6]],
+    iupac:"cis-diamminedichloroplatine(II)",
+    formula:"PtCl₂(NH₃)₂",
+    markets:{fr:"Cisplatine Teva / Cisplatine Pfizer",us:"Platinol / Cisplatin Accord",uk:"Cisplatin Accord / Cisplatin Pfizer",de:"Cisplatin Hexal / Cisplatin medac",be:"Cisplatine Fresenius / Cisplatine EG",cn:"顺铂 (Shùn bó)",in:"Cisteen / Cizplat / Cytosin"}
+  },
+  {
+    drug:"Carboplatine", country:"USA", lat:40.7, lon:-74.0, severity:"critique",
+    cause:"Fermeture usine Intas", class:"Oncologie", source:"FDA", since:"2023-02",
+    supply_from:[[23.0,72.6]],
+    iupac:"cis-diamine(cyclobutane-1,1-dicarboxylato)platine(II)",
+    formula:"C₆H₁₂N₂O₄Pt",
+    markets:{fr:"Carboplatine Teva / Carboplatine Pfizer",us:"Paraplatin / Carboplatin Accord",uk:"Carboplatin Accord / Carboplatin medac",de:"Carboplatin Hexal / Carboplatin medac",be:"Carboplatine Fresenius / Carboplatine EG",cn:"卡铂 (Kǎ bó)",in:"Carbotax / Kemocarb"}
+  },
+  {
+    drug:"Méthotrexate injectable", country:"Allemagne", lat:52.5, lon:13.4, severity:"critique",
+    cause:"Problème fabrication", class:"Oncologie", source:"EMA", since:"2023-03",
+    iupac:"Acide (2S)-2-[[4-[(2,4-diaminoptéridin-6-yl)méthyl-méthylamino]benzoyl]amino]pentanedioïque",
+    formula:"C₂₀H₂₂N₈O₅",
+    markets:{fr:"Méthotrexate Pfizer / Imeth / Novatrex",us:"Otrexup / Rasuvo / Methotrexate Accord",uk:"Methofar / Metoject / Zlatal",de:"Methotrexat Lederle / Lantarel / MTX Hexal",be:"Méthotrexate Pfizer / Methofar",cn:"甲氨蝶岀 (Jiǎ'àndié lǐng)",in:"Folitrax / Biotrexate / Neotrexate"}
+  },
+  {
+    drug:"Adderall (amphétamine)", country:"USA", lat:37.0, lon:-95.0, severity:"critique",
+    cause:"Hausse demande post-COVID", class:"Neurologie", source:"FDA", since:"2022-10",
+    iupac:"Mélange de sels de (R)- et (S)-amphétamine",
+    formula:"C₉H₁₃N",
+    markets:{fr:"Non commercialisé (stupéfiant non autorisé)",us:"Adderall / Adderall XR / Mydayis",uk:"Dexamfetamine Accord (équivalent partiel)",de:"Attentin / Elvanse (lisdexamfétamine)",be:"Non commercialisé",cn:"苯丙胺 — usage médical très restreint",in:"Non disponible légalement"}
+  },
+  {
+    drug:"Morphine injectable", country:"Royaume-Uni", lat:51.5, lon:-0.1, severity:"critique",
+    cause:"Arrêt fabricant", class:"Analgésiques", source:"EMA", since:"2023-06",
+    iupac:"(4R,4aR,7S,7aR,12bS)-3-méthyl-2,3,4,4a,7,7a-hexahydro-1H-4,12-méthanobenzofuro[3,2-e]isoquinoline-7,9-diol",
+    formula:"C₁₇H₁₉NO₃",
+    markets:{fr:"Morphine Cooper / Sévrédol / Skénan LP",us:"MS Contin / Kadian / Morphabond",uk:"Oramorph / Zomorph / MST Continus",de:"MST Mundipharma / Capros / M-long",be:"Morphine Cooper / Morphine-HCl Sterop",cn:"吐啊 (Mǎ fēi)",in:"Roxanol / Morphine Sulphate Rusan"}
+  },
+  {
+    drug:"Furosémide 40mg", country:"Canada", lat:45.4, lon:-75.7, severity:"critique",
+    cause:"GMP non-conformité", class:"Cardiologie", source:"Health Canada", since:"2023-01",
+    iupac:"Acide 4-chloro-2-[(furan-2-ylméthyl)amino]-5-sulfamoylbenzoïque",
+    formula:"C₁₂H₁₁ClN₂O₅S",
+    markets:{fr:"Lasilix / Furosémide Biogaran / Furosémide Teva",us:"Lasix / Furoscix / Furosemide Accord",uk:"Frusol / Frumil / Furosemide Sandoz",de:"Lasix / Furosemid Ratiopharm / Furosemid Hexal",be:"Lasilix / Furosémide EG / Furosémide Sandoz",cn:"吗塞米 (Fū sài mǐ) / 速尿",in:"Lasix / Frusemide IP / Frusid"}
+  },
+  {
+    drug:"Paracétamol IV", country:"Brésil", lat:-15.8, lon:-47.9, severity:"critique",
+    cause:"Pénurie matières premières", class:"Analgésiques", source:"ANVISA", since:"2023-04",
+    iupac:"N-(4-hydroxyphényl)acétamide",
+    formula:"C₈H₉NO₂",
+    markets:{fr:"Perfalgan / Paracétamol Fresenius / Paracétamol B. Braun",us:"Ofirmev / Tylenol IV / Acetaminophen Accord",uk:"Paracetamol B.Braun / Perfalgan / Paragesic",de:"Perfalgan / Paracetamol Fresenius / Ben-u-ron IV",be:"Perfalgan / Paracétamol Fresenius Kabi",cn:"对乙酰氨基芯 (Duì yǐ xiān ānjī fēn) / 扑热息痛",in:"Crocin IV / Perfalgan / Pyrigesic IV"}
+  },
+  {
+    drug:"Insuline humaine NPH", country:"Inde", lat:20.6, lon:79.1, severity:"critique",
+    cause:"Demande excédentaire", class:"Diabétologie", source:"CDSCO", since:"2023-05",
+    iupac:"Insuline humaine biosynthétique protamine-zinc (51 acides aminés)",
+    formula:"C₂₅₇H₃₈₃N₆₅O₇₇S₆",
+    markets:{fr:"Insulatard / Umuline NPH / Insuman Basal",us:"Humulin N / Novolin N / ReliOn NPH",uk:"Insulatard / Humulin I / Insuman Basal",de:"Insuman Basal / Huminsulin Basal / Protaphane",be:"Insulatard / Humuline NPH / Insuman Basal",cn:"诺和灵N (Nuò hé líng N) / 优泌林N",in:"Wosulin-N / Insugen-N / Huminsulin N"}
+  },
+  {
+    drug:"Propofol (anesthésie)", country:"Australie", lat:-25.3, lon:133.8, severity:"critique",
+    cause:"Problème logistique", class:"Anesthésiologie", source:"TGA", since:"2022-08",
+    iupac:"2,6-diisopropylphénol",
+    formula:"C₁₂H₁₈O",
+    markets:{fr:"Diprivan / Propofol Fresenius / Propofol B. Braun",us:"Diprivan / Propofol Fresenius / Fresofol",uk:"Diprivan / Propofol-Lipuro / Propofol Fresenius",de:"Diprivan / Propofol Fresenius / Propofol-Lipuro",be:"Diprivan / Propofol Fresenius Kabi / Propofol B. Braun",cn:"丙泊酚 (Bǐng bó fēn) / 得普利麻",in:"Propofol Fresenius / Diprivan / Profol"}
+  },
+  {
+    drug:"Azithromycine 250mg", country:"Espagne", lat:40.4, lon:-3.7, severity:"critique",
+    cause:"Surdemande résistance pénicilline", class:"Antibiotiques", source:"AEMPS", since:"2023-01",
+    iupac:"Macrolide semi-synthétique à 15 chaînons dérivé de l'érythromycine A",
+    formula:"C₃₈H₇₂N₂O₁₂",
+    markets:{fr:"Zithromax / Azithromycine Sandoz / Azithromycine Biogaran",us:"Zithromax / Z-Pack / Azithromycin Accord",uk:"Zithromax / Azithromycin Accord / Azithromycin Sandoz",de:"Zithromax / Azithromycin Sandoz / Azithromycin Ratiopharm",be:"Zithromax / Azithromycine EG / Azithromycine Sandoz",cn:"阿奇霉素 (Ā qí méisù) / 希舒美",in:"Azithral / Zithrocin / Atm"}
+  },
+  {
+    drug:"Vincristine injectable", country:"USA", lat:39.5, lon:-98.0, severity:"critique",
+    cause:"Indéterminée", class:"Oncologie", source:"FDA", since:"2023-01",
+    iupac:"Alcaloïde de la pervenche de Madagascar — leurocristine",
+    formula:"C₄₆H₅₆N₄O₁₀",
+    markets:{fr:"Vincristine Pfizer / Oncovin",us:"Vincasar PFS / Vincrex",uk:"Vincristine Pfizer / Oncovin",de:"Vincristin Accord / Vincristin Hexal",be:"Vincristine Pfizer / Vincristine EG",cn:"长春新碱 (Cháng chūn xīn jiǎn)",in:"Vincristin / Cytocristin / Vincasar"}
+  },
+  {
+    drug:"Lorazépam injectable", country:"USA", lat:34.0, lon:-100.0, severity:"critique",
+    cause:"Indéterminée", class:"Neurologie", source:"FDA", since:"2022-09",
+    iupac:"7-chloro-5-(2-chlorophényl)-3-hydroxy-1,3-dihydro-2H-1,4-benzodiazepin-2-one",
+    formula:"C₁₅H₁₀Cl₂N₂O₂",
+    markets:{fr:"Temesta / Lorazépam Mylan / Lorazépam Sandoz",us:"Ativan / Lorazepam Pfizer / Lorazepam Accord",uk:"Ativan / Lorazepam Accord / Lorazepam Wockhardt",de:"Tavor / Lorazepam Hexal / Lorazepam Ratiopharm",be:"Temesta / Lorazépam EG / Lorazépam Sandoz",cn:"劳拉西泰 (Láo lā xī pān) / 罗拉",in:"Ativan / Larpose / Lorsilan"}
+  },
+  {
+    drug:"Cytarabine injectable", country:"USA", lat:32.0, lon:-96.0, severity:"critique",
+    cause:"Indéterminée", class:"Oncologie", source:"FDA", since:"2023-04",
+    iupac:"4-amino-1-[(2R,3S,4R,5R)-3,4-dihydroxy-5-(hydroxyméthyl)oxolan-2-yl]pyrimidin-2(1H)-one",
+    formula:"C₉H₁₃N₃O₅",
+    markets:{fr:"Aracytine / Cytarabine Pfizer / Cytarabine Accord",us:"Cytosar-U / Cytarabine Pfizer / Cytarabine Accord",uk:"Cytosar / Cytarabine Pfizer / Cytarabine Accord",de:"Alexan / Cytarabin Hexal / Cytarabin Medac",be:"Aracytine / Cytarabine EG / Cytarabine Fresenius",cn:"阿糖胞苷 (Ā táng bāo gān) / 赛德萨",in:"Cytosar / Cytarabine IP / Alexan"}
+  },
+  {
+    drug:"Noradrénaline injectable", country:"France", lat:47.5, lon:1.0, severity:"critique",
+    cause:"Demande excédentaire", class:"Cardiologie", source:"ANSM", since:"2023-06",
+    iupac:"(R)-4-(2-amino-1-hydroxyéthyl)benzène-1,2-diol",
+    formula:"C₈H₁₁NO₃",
+    markets:{fr:"Noradrénaline Aguettant / Noradrénaline Renaudin",us:"Levophed / Norepinephrine Pfizer / Norepinephrine Hospira",uk:"Noradrenaline Pfizer / Levophed / Noradrenaline B.Braun",de:"Arterenol / Noradrenalin Hexal / Noradrenalin B.Braun",be:"Noradrénaline Aguettant / Noradrénaline Sterop",cn:"去甲肾上腺素 (Qù jiǎ shèn shàng xiàn sù)",in:"Noradrenaline IP / Levophed / Nordefrin"}
+  },
+  {
+    drug:"Amikacine injectable", country:"France", lat:44.0, lon:2.0, severity:"critique",
+    cause:"Arrêt fabricant", class:"Antibiotiques", source:"ANSM", since:"2023-05",
+    iupac:"Aminoglycoside semi-synthétique dérivé de la kanamycine A",
+    formula:"C₂₂H₄₃N₅O₁₃",
+    markets:{fr:"Amiklin / Amikacine Mylan / Amikacine Sandoz",us:"Amikin / Amikacin Pfizer / Amikacin Accord",uk:"Amikin / Amikacin Wockhardt / Amikacin Accord",de:"Amikacin Hexal / Amikacin Fresenius / Biklin",be:"Amiklin / Amikacine EG / Amikacine Sandoz",cn:"阿米卡星 (Ā mǐ kǎ xīng)",in:"Amikin / Mikacin / Amicin"}
+  },
+  // ── TENSION ───────────────────────────────────────────────────
+  {
+    drug:"Ibuprofen pédiatrique", country:"Italie", lat:41.9, lon:12.5, severity:"tension",
+    cause:"Arrêt ligne fabrication", class:"Analgésiques", source:"AIFA", since:"2022-11",
+    iupac:"Acide (RS)-2-(4-(2-méthylpropyl)phényl)propanoïque",
+    formula:"C₁₃H₁₈O₂",
+    markets:{fr:"Advil enfant / Nurofen enfant / Ibuprofène Sandoz",us:"Children's Advil / Children's Motrin / Ibuprofen Accord",uk:"Nurofen for Children / Calprofen / Junior Brufen",de:"Nurofen Junior / Ibuprofen Ratiopharm Kind / Dolormin für Kinder",be:"Nurofen enfant / Ibuprofen EG Kind / Brufen",cn:"布洛芬 (Bù luò fēn) 儿童混憂液 / 美林",in:"Ibugesic / Brufen Paeds / Calprofen"}
+  },
+  {
+    drug:"Ventoline (salbutamol)", country:"France", lat:48.9, lon:2.3, severity:"tension",
+    cause:"Demande saisonnière", class:"Pneumologie", source:"ANSM", since:"2023-02",
+    iupac:"(RS)-2-(4-hydroxy-3-hydroxyméthylphényl)-2-(tert-butylamino)éthanol",
+    formula:"C₁₃H₂₁NO₃",
+    markets:{fr:"Ventoline / Salbutamol Sandoz / Airomir",us:"ProAir HFA / Ventolin HFA / Proventil HFA",uk:"Ventolin Accuhaler / Salamol / Salbulin",de:"Sultanol / Salbutamol Ratiopharm / Ventolin",be:"Ventoline / Salbutamol EG / Airomir",cn:"沙丁胺醇 (Shā dīng àn chún) / 万托林",in:"Asthalin / Ventorlin / Derihaler"}
+  },
+  {
+    drug:"Paracétamol sirop enfant", country:"France", lat:45.8, lon:3.1, severity:"tension",
+    cause:"Épidémies hivernales", class:"Analgésiques", source:"ANSM", since:"2022-10",
+    supply_from:[[1.4,103.8]],
+    iupac:"N-(4-hydroxyphényl)acétamide (solution pédiatrique)",
+    formula:"C₈H₉NO₂",
+    markets:{fr:"Doliprane enfant / Efferalganmed enfant / Paracétamol Sandoz",us:"Children's Tylenol / FeverAll / Panadol Children",uk:"Calpol / Panadol Children / Medinol Paediatric",de:"Ben-u-ron Saft / Paracetamol Sirup Ratiopharm / Februnin",be:"Perdolan enfant / Dafalgan enfant / Paracétamol EG",cn:"对乙酰氨基芯口服溶液 / 泰诺林儿童",in:"Crocin DS / Pyrigesic Paeds / Febrex Plus"}
+  },
+  {
+    drug:"Pénicilline G injectable", country:"Belgique", lat:50.8, lon:4.4, severity:"tension",
+    cause:"Fabricant unique mondial", class:"Antibiotiques", source:"AFMPS", since:"2023-03",
+    iupac:"Acide (2S,5R,6R)-3,3-diméthyl-7-oxo-6-(2-phénylacétamido)-4-thia-1-azabicyclo[3.2.0]heptane-2-carboxylique",
+    formula:"C₁₆H₁₈N₂O₄S",
+    markets:{fr:"Pénicilline G sodique Panpharma / Pénicilline G potassique",us:"Pfizerpen / Penicillin G Potassium Sandoz",uk:"Crystapen / Penicillin G Sodium Wockhardt",de:"Penicillin G Sandoz / Penicillin Grünenthal",be:"Pénicilline G sodique Sterop / Crystapen",cn:"青霉素G (Qīng méisùG) / 苄青霉素",in:"Benzylpenicillin IP / Crystapen / Penidure"}
+  },
+  {
+    drug:"Lisinopril 10mg", country:"USA", lat:33.4, lon:-84.4, severity:"tension",
+    cause:"Augmentation demande", class:"Cardiologie", source:"FDA", since:"2022-09",
+    iupac:"Acide (S)-1-[N²-(1-carboxy-3-phénylpropyl)-L-lysyl]-L-proline",
+    formula:"C₂₁H₃₁N₃O₅",
+    markets:{fr:"Zestril / Prinivil / Lisinopril Biogaran",us:"Zestril / Prinivil / Qbrelis / Lisinopril Accord",uk:"Zestril / Carace / Lisinopril Accord",de:"Zestril / Lisinopril Ratiopharm / Acerbon",be:"Zestril / Prinivil / Lisinopril EG",cn:"赖诺普利 (Lài nuò pǔ lì) / 捎赐瑞",in:"Listril / Linvas / Lisoril"}
+  },
+  {
+    drug:"Metformine XR", country:"Canada", lat:43.7, lon:-79.4, severity:"tension",
+    cause:"Rappel lots contaminés", class:"Diabétologie", source:"Health Canada", since:"2023-02",
+    iupac:"N,N-diméthylimidodicarbonimidique diamide",
+    formula:"C₄H₁₁N₅",
+    markets:{fr:"Glucophage XR / Metformine LP Biogaran / Stagid",us:"Glucophage XR / Fortamet / Glumetza / Metformin ER",uk:"Glucophage SR / Metformin MR Accord / Bolamyn SR",de:"Glucophage Retard / Metformin Hexal 1000 Retard / Metformin AbZ",be:"Glucophage XR / Metformine Sandoz LP / Metformine EG",cn:"盐酸二甲双胍缓释片 / 格华XR",in:"Glycomet SR / Glucophage XR / Cetapin XR"}
+  },
+  {
+    drug:"Clonazépam 0.5mg", country:"Mexique", lat:19.4, lon:-99.1, severity:"tension",
+    cause:"Restrictions importation", class:"Neurologie", source:"COFEPRIS", since:"2023-01",
+    iupac:"5-(2-chlorophényl)-7-nitro-1,3-dihydro-2H-1,4-benzodiazepin-2-one",
+    formula:"C₁₅H₁₀ClN₃O₃",
+    markets:{fr:"Rivotril / Clonazépam Biogaran / Clonazépam Arrow",us:"Klonopin / Clonazepam Accord / Clonazepam Sandoz",uk:"Rivotril / Clonazepam Accord (accès restreint)",de:"Rivotril / Clonazepam Ratiopharm / Clonazepam AbZ",be:"Rivotril / Clonazépam Sandoz / Clonazépam EG",cn:"氯硝西泰 (Lǜ xiāo xī pān) / 氯硝安定",in:"Petril / Clonotril / Lonazep"}
+  },
+  {
+    drug:"Doxycycline 100mg", country:"Pays-Bas", lat:52.4, lon:4.9, severity:"tension",
+    cause:"Concentration fournisseurs API", class:"Antibiotiques", source:"EMA", since:"2022-12",
+    supply_from:[[31.0,121.4]],
+    iupac:"Tétracycline semi-synthétique — dérivé 6-désoxy de l'oxytétracycline",
+    formula:"C₂₂H₂₄N₂O₈",
+    markets:{fr:"Vibramycine / Doxycycline Biogaran / Doxycycline Sandoz",us:"Vibramycin / Doryx / Monodox / Adoxa",uk:"Vibramycin-D / Doxycycline Accord / Periostat",de:"Vibramycin / Doxycyclin Ratiopharm / Doxycyclin Hexal",be:"Vibramycine / Doxycycline EG / Doxycycline Sandoz",cn:"多西环素 (Duō xī huán sù) / 强力霉素",in:"Doxt / Biodoxi / Doxy-1"}
+  },
+  {
+    drug:"Atropine ophtalmique", country:"Singapour", lat:1.3, lon:103.8, severity:"tension",
+    cause:"Demande myopie enfants", class:"Ophtalmologie", source:"HSA", since:"2023-04",
+    iupac:"endo-(±)-α-(hydroxyméthyl)benzèneacétate 8-méthyl-8-azabicyclo[3.2.1]oct-3-yle",
+    formula:"C₁₇H₂₃NO₃",
+    markets:{fr:"Atropine sulfate Alcon / Atropine 0.01% préparation magistrale",us:"Isopto Atropine / Atropen / Atropine sulfate Akorn",uk:"Minims Atropine / Isopto Atropine / Atropine Bausch",de:"Atropin POS / Atropin Dispersa / Atropin Ursapharm",be:"Atropine sulfate Alcon / Atropine Théa",cn:"硫酸阿托品 (Liú suān ā tuō pǐn) / 阿托品",in:"Atropine Sulphate Aurolab / Isopto Atropine / Atropair"}
+  },
+  {
+    drug:"Fentanyl transdermique", country:"Allemagne", lat:48.1, lon:11.6, severity:"tension",
+    cause:"Arrêt fabricant secondaire", class:"Analgésiques", source:"BfArM", since:"2022-11",
+    iupac:"N-phényl-N-[1-(2-phényléthyl)pipéridin-4-yl]propanamide",
+    formula:"C₂₂H₂₈N₂O",
+    markets:{fr:"Durogesic / Fentanyl Sandoz / Matrifen",us:"Duragesic / Fentanyl Transdermal Mylan / Fentanyl Sandoz",uk:"Durogesic DTrans / Matrifen / Fentanyl Sandoz TTS",de:"Durogesic / Fentanyl Ratiopharm TTS / Matrifen",be:"Durogesic / Fentanyl Sandoz / Matrifen",cn:"芬太尼透皮贴剂 (Fēn tài ní tòu pí tiē jì) / 多瑞吉",in:"Durogesic / Fentanyl TDS Noven / Fentadur"}
+  },
+  {
+    drug:"Vancomycine IV", country:"Japon", lat:35.7, lon:139.7, severity:"tension",
+    cause:"Arrêt ligne fabrication", class:"Antibiotiques", source:"PMDA", since:"2023-06",
+    iupac:"Glycopeptide tricyclique produit par Amycolatopsis orientalis",
+    formula:"C₆₆H₇₅Cl₂N₉O₂₄",
+    markets:{fr:"Vancocine / Vancomycine Mylan / Vancomycine Sandoz",us:"Vancocin / Vancomycin Pfizer / Vancomycin Accord",uk:"Vancocin / Vancomycin Wockhardt / Vancomycin Accord",de:"Vancomycin Hexal / Vancomycin Sandoz / Vancocin",be:"Vancocine / Vancomycine Sandoz / Vancomycine EG",cn:"万古霉素 (Wàn gǔ méisù) / 稳可信",in:"Vancoled / Vancon / Ristocet"}
+  },
+  {
+    drug:"Ondansetron 4mg", country:"Brésil", lat:-23.5, lon:-46.6, severity:"tension",
+    cause:"Hausse demande post-COVID", class:"Gastroentérologie", source:"ANVISA", since:"2023-03",
+    iupac:"1,2,3,9-tétrahydro-9-méthyl-3-[(2-méthyl-1H-imidazol-1-yl)méthyl]-4H-carbazol-4-one",
+    formula:"C₁₈H₁₉N₃O",
+    markets:{fr:"Zophren / Ondansétron Biogaran / Ondansétron Sandoz",us:"Zofran / Ondansetron Accord / Ondansetron Sandoz",uk:"Zofran / Ondansetron Accord / Ondansetron Wockhardt",de:"Zofran / Ondansetron Hexal / Ondansetron Sandoz",be:"Zophren / Ondansétron EG / Ondansétron Sandoz",cn:"昂丹司琥 (Áng dān sī qióng) / 枢复宁",in:"Emeset / Ondem / Ondansetron Cipla"}
+  },
+  {
+    drug:"Héparine sodique", country:"Chine", lat:39.9, lon:116.4, severity:"tension",
+    cause:"Matière 1ère (porc)", class:"Cardiologie", source:"NMPA", since:"2023-01",
+    supply_from:[[28.6,77.2]],
+    iupac:"Polysaccharide sulfaté d'origine porcine (glycosaminoglycane)",
+    formula:"C₁₂H₁₉NO₂₀S₃ (unité répétitive)",
+    markets:{fr:"Héparine sodique Panpharma / Héparine sodique Choay",us:"Heparin Sodium Pfizer / Heparin Sodium Fresenius / Hepflush",uk:"Heparin Sodium Leo / Heparin Sodium Wockhardt / Monoparin",de:"Heparin-Natrium-25000 Ratiopharm / Heparin Braun",be:"Héparine sodique Leo / Héparine ACF / Héparine Sterop",cn:"肝素钒 (Gān sù nà) / 海普宁",in:"Heparin Sodium IP / Hepsal / Hepathrom"}
+  },
+  {
+    drug:"Methylphenidate", country:"Suède", lat:59.3, lon:18.1, severity:"tension",
+    cause:"Hausse diagnostics TDAH", class:"Neurologie", source:"MPA", since:"2022-07",
+    iupac:"Méthyl (2R)-2-phényl-2-[(2R)-pipéridin-2-yl]acétate",
+    formula:"C₁₄H₁₉NO₂",
+    markets:{fr:"Ritaline / Concerta / Quasym LP / Médikinet",us:"Ritalin / Concerta / Methylin / Quillivant XR",uk:"Ritalin / Concerta XL / Equasym XL / Medikinet",de:"Ritalin / Concerta / Medikinet / Methylphenidat Hexal",be:"Ritalin / Concerta / Medikinet / Rilatine",cn:"哌甲酵 (Pài jiǎ zhǐ) / 利他林",in:"Ritalin / Inspiral / Addwize"}
+  },
+  {
+    drug:"Chlorhexidine solution", country:"Afrique du Sud", lat:-26.2, lon:28.0, severity:"tension",
+    cause:"Problème logistique", class:"Antiseptiques", source:"SAHPRA", since:"2023-05",
+    iupac:"1,1'-hexane-1,6-diylbis[5-(4-chlorophényl)biguanide]",
+    formula:"C₂₂H₃₀Cl₂N₁₀",
+    markets:{fr:"Hibitane / Diaseptyl / Chlorhexidine Cooper",us:"Hibiclens / ChloraPrep / BactoShield",uk:"Hibiscrub / Chloraprep / Hydrex",de:"Hibitane / Chlorhexidin Lösung Braun / Sebidin",be:"Hibiscrub / Chlorhexidine 5% Sterop / Hibiscrub",cn:"氯己定 (Lǜ jǐ dìng) / 洗必泰",in:"Clohex / Hexidine / Periogard"}
+  },
+  {
+    drug:"Morphine sulfate oral", country:"USA", lat:36.0, lon:-95.0, severity:"tension",
+    cause:"Indéterminée", class:"Analgésiques", source:"ASHP", since:"2023-03",
+    iupac:"(4R,4aR,7S,7aR,12bS)-3-méthyl-hexahydro-méthanobenzofuroisoquinoline-7,9-diol sulfate",
+    formula:"(C₁₇H₁₉NO₃)₂ · H₂SO₄",
+    markets:{fr:"Actiskenan / Sevredol / Moscontin",us:"MS Contin / MSIR / Roxanol",uk:"Oramorph / MST Continus / Zomorph",de:"MST Mundipharma / Capros / M-long",be:"Morphine Cooper / Morphine Sterop",cn:"硫酸吐啊 (Liú suān mǎ fēi)",in:"Roxanol / Morphine Sulphate IP"}
+  },
+  {
+    drug:"Pipéracilline-Tazobactam", country:"Allemagne", lat:51.0, lon:10.0, severity:"tension",
+    cause:"Concentration fabrication", class:"Antibiotiques", source:"EMA", since:"2023-04",
+    iupac:"Pipéracilline sodique + tazobactam sodique",
+    formula:"C₂₃H₂₆N₅NaO₇S + C₁₀H₁₁N₄NaO₅S",
+    markets:{fr:"Tazocilline / Piperacilline-Tazobactam Mylan",us:"Zosyn / Piperacillin-Tazobactam Pfizer",uk:"Tazocin / Piperacillin-Tazobactam Accord",de:"Tazobac / Piperacillin/Tazobactam Hexal",be:"Tazocilline / Piperacilline-Tazobactam EG",cn:"哌拉西林他唆巴坦 / 特治星",in:"Piptaz / Tazact / Zosyn"}
+  },
+  {
+    drug:"Midazolam injectable", country:"Royaume-Uni", lat:52.0, lon:-1.5, severity:"tension",
+    cause:"Arrêt fabricant", class:"Anesthésiologie", source:"MHRA", since:"2023-02",
+    iupac:"8-chloro-6-(2-fluorophényl)-1-méthyl-4H-imidazo[1,5-a][1,4]benzodiazépine",
+    formula:"C₁₈H₁₃ClFN₃",
+    markets:{fr:"Hypnovel / Midazolam Mylan / Midazolam Aguettant",us:"Versed / Midazolam Pfizer / Midazolam Accord",uk:"Hypnovel / Midazolam Pfizer / Midazolam Wockhardt",de:"Dormicum / Midazolam Hexal / Midazolam Ratiopharm",be:"Hypnovel / Midazolam EG / Midazolam Sandoz",cn:"咋达唠仑 (Mī dá zuò lún) / 速眠安",in:"Mezolam / Versed / Midaject"}
+  },
+  {
+    drug:"Bicarbonate de sodium IV", country:"France", lat:48.5, lon:2.8, severity:"tension",
+    cause:"Concentration fabrication", class:"Cardiologie", source:"ANSM", since:"2023-07",
+    iupac:"Hydrogénocarbonate de sodium",
+    formula:"NaHCO₃",
+    markets:{fr:"Bicarbonate de Sodium Aguettant / Bicarbonate Fresenius",us:"Sodium Bicarbonate Hospira / Sodium Bicarbonate Pfizer",uk:"Sodium Bicarbonate B.Braun / Minijet Sodium Bicarbonate",de:"Natriumhydrogencarbonat B.Braun / Natriumbicarbonat Fresenius",be:"Bicarbonate de Sodium Aguettant / Natriumbicarbonaat Sterop",cn:"碳酸氢钓 (Tàn suān qīng nà) / 小苏打注射液",in:"Sodium Bicarbonate IP / Bicarb / Soda Bicarb Inj"}
+  },
+  // ── VIGILANCE ─────────────────────────────────────────────────
+  {
+    drug:"Lévothyroxine 100µg", country:"France", lat:43.3, lon:5.4, severity:"vigilance",
+    cause:"Problème qualité lot", class:"Endocrinologie", source:"ANSM", since:"2023-04",
+    iupac:"Acide O-(4-hydroxy-3,5-diiodophényl)-3,5-diiodo-L-tyrosine sodique",
+    formula:"C₁₅H₁₀I₄NNaO₄",
+    markets:{fr:"Lévothyrox / L-Thyroxine Serb / Euthyrox / Thyrofix",us:"Synthroid / Levoxyl / Unithroid / Tirosint",uk:"Eltroxin / Levothyroxine Accord / Mercury Pharma",de:"L-Thyroxin Henning / Euthyrox / L-Thyroxin Hexal",be:"Eltroxin / Euthyrox / L-Thyroxine Servier",cn:"左甲状腺素钒 (Zuǒ jiǎ zhuàng xiàn sù nà) / 优甲乐",in:"Thyronorm / Eltroxin / Thyroxine Sanofi"}
+  },
+  {
+    drug:"Acide folique 5mg", country:"Royaume-Uni", lat:53.5, lon:-2.2, severity:"vigilance",
+    cause:"Augmentation demande", class:"Hématologie", source:"MHRA", since:"2023-03",
+    iupac:"Acide N-[4-[(2-amino-4-oxo-1H-ptéridin-6-yl)méthylamino]benzoyl]-L-glutamique",
+    formula:"C₁₉H₁₉N₇O₆",
+    markets:{fr:"Spéciafoldine / Acide folique Biogaran / Acidofolic",us:"Folic Acid Accord / Folate / FA-8",uk:"Folicare / Folic Acid Accord / Preconceive",de:"Folsäure Ratiopharm / Folsäure Hexal / Folsan",be:"Acidofolic / Acide folique EG / Spéciafoldine",cn:"叶酸 (Yè suān) / 斯利安",in:"Folvite / Folic Acid IP / Folsafe"}
+  },
+  {
+    drug:"Atorvastatine 40mg", country:"Portugal", lat:38.7, lon:-9.1, severity:"vigilance",
+    cause:"Tension fournisseur", class:"Cardiologie", source:"INFARMED", since:"2023-05",
+    iupac:"Acide (3R,5R)-7-[2-(4-fluorophényl)-3-phényl-4-(phénylcarbamoyl)-5-propan-2-ylpyrrol-1-yl]-3,5-dihydroxyheptanoïque",
+    formula:"C₃₃H₃₅FN₂O₅",
+    markets:{fr:"Tahor / Atorvastatine Biogaran / Atorvastatine Sandoz",us:"Lipitor / Atorvastatin Accord / Atorvastatin Pfizer",uk:"Lipitor / Atorvastatin Accord / Atorvastatin Sandoz",de:"Sortis / Atorvastatin Hexal / Atorvastatin Ratiopharm",be:"Lipitor / Atorvastatine EG / Atorvastatine Sandoz",cn:"阿托伐他汀 (Ā tuō fá tā tīng) / 立普妚",in:"Storvas / Atorva / Tonact"}
+  },
+  {
+    drug:"Prednisolone 5mg", country:"Pologne", lat:52.2, lon:21.0, severity:"vigilance",
+    cause:"Concentration API Chine", class:"Immunologie", source:"URPL", since:"2023-02",
+    supply_from:[[31.0,121.4]],
+    iupac:"(8S,9S,10R,11S,13S,14S,17R)-11,17-dihydroxy-17-(2-hydroxyacétyl)-10,13-diméthyl-dodécahydro-cyclopenta[a]phénanthren-3(5H)-one",
+    formula:"C₂₁H₂₈O₅",
+    markets:{fr:"Solupred / Prednisolone Biogaran / Hydrocortancyl",us:"Prelone / Pediapred / Millipred / Omnipred",uk:"Deltacortril / Prednisolone Accord / Dilacort",de:"Decortin H / Prednisolon Galen / Prednisolon Hexal",be:"Solupred / Prednisolone EG / Prednisolone Sandoz",cn:"泼尼松龙 (Pō ní sōng lóng) / 强的松龙",in:"Wysolone / Hostacortin H / Predmet"}
+  },
+  {
+    drug:"Hydroxychloroquine", country:"USA", lat:41.9, lon:-87.6, severity:"vigilance",
+    cause:"Spéculation post-COVID", class:"Immunologie", source:"FDA", since:"2022-06",
+    iupac:"2-[[4-[(7-chloro-4-quinolyl)amino]pentyl]éthylamino]éthanol",
+    formula:"C₁₈H₂₆ClN₃O",
+    markets:{fr:"Plaquenil / Hydroxychloroquine Biogaran / Hydroxychloroquine Sandoz",us:"Plaquenil / Hydroxychloroquine Accord / HCQ Sandoz",uk:"Plaquenil / Hydroxychloroquine Accord / Quinoric",de:"Plaquenil / Hydroxychloroquin Hexal / Hydroxychloroquin-ratiopharm",be:"Plaquenil / Hydroxychloroquine EG / Hydroxychloroquine Sandoz",cn:"羟氯奎 (Qiǎng lǜ kuí) / 纷乐",in:"Hydroquin / HCQS / Plaquinol"}
+  },
+  {
+    drug:"Tacrolimus 1mg", country:"Corée du Sud", lat:37.6, lon:127.0, severity:"vigilance",
+    cause:"Arrêt fabricant", class:"Immunologie", source:"MFDS", since:"2023-06",
+    iupac:"Macrolide d'origine naturelle produit par Streptomyces tsukubaensis",
+    formula:"C₄₄H₆₉NO₁₂ · H₂O",
+    markets:{fr:"Prograf / Tacrolimus Sandoz / Modigraf / Advagraf",us:"Prograf / Astagraf XL / Envarsus XR / Tacrolimus Accord",uk:"Prograf / Tacrolimus Accord / Adoport / Vivadex",de:"Prograf / Advagraf / Tacrolimus Hexal / Modigraf",be:"Prograf / Advagraf / Tacrolimus Sandoz / Modigraf",cn:"他克莫司 (Tā kè mò sī) / 普乐可复",in:"Tacroil / Pangraf / Tacrograf"}
+  },
+  {
+    drug:"Rifampicine", country:"Nigéria", lat:9.1, lon:7.4, severity:"vigilance",
+    cause:"Rupture importation", class:"Infectiologie", source:"NAFDAC", since:"2023-01",
+    iupac:"Rifamycine semi-synthétique — dérivé naphtol de la rifamycine SV",
+    formula:"C₄₃H₅₈N₄O₁₂",
+    markets:{fr:"Rifadine / Rifampicine Sandoz / Rimactan",us:"Rifadin / Rimactane / Rifampicin Sandoz",uk:"Rifadin / Rimactane / Rifampicin Sandoz",de:"Rifa / Rifampicin Hexal / Rimactan",be:"Rifadine / Rifampicine Sandoz / Rimactan",cn:"利福平 (Lì fú píng) / 甲哌利福霉素",in:"Rifampicin / R-Cin / Macox"}
+  },
+  {
+    drug:"Gentamicine ophtalmique", country:"Argentine", lat:-34.6, lon:-58.4, severity:"vigilance",
+    cause:"Problème douanier", class:"Ophtalmologie", source:"ANMAT", since:"2023-04",
+    iupac:"Complexe d'aminoglycosides (C₁, C₁a, C₂) produit par Micromonospora purpurea",
+    formula:"C₂₁H₄₃N₅O₇ (composant C₁)",
+    markets:{fr:"Gentalline collyre / Gentamicine Théa / Garamycine",us:"Garamycin / Genoptic / Gentamicin Bausch & Lomb",uk:"Genticin / Garamycin / Gentamicin Bausch",de:"Refobacin / Gentamicin Hexal / Garamycin Augentropfen",be:"Gentalline / Garamycine / Gentamicine Théa",cn:"硫酸庆大霉素 (Liú suān qìng dà méisù) / 正泰霉素",in:"Gentamicin IP / Garamycin / Gentamicin Cipla"}
+  },
+  {
+    drug:"Hydroxyzine 25mg", country:"France", lat:43.7, lon:4.0, severity:"vigilance",
+    cause:"Indéterminée", class:"Neurologie", source:"ANSM", since:"2024-01",
+    iupac:"2-[2-[4-[(4-chlorophényl)-phénylméthyl]pipérazin-1-yl]éthoxy]éthanol",
+    formula:"C₂₁H₂₇ClN₂O₂",
+    markets:{fr:"Atarax / Hydroxyzine Biogaran / Hydroxyzine Mylan",us:"Vistaril / Atarax / Hydroxyzine Pfizer",uk:"Atarax / Hydroxyzine Accord / Hydroxyzine Pfizer",de:"Atarax / Hydroxyzin Hexal / Hydroxyzin Ratiopharm",be:"Atarax / Hydroxyzine EG / Hydroxyzine Sandoz",cn:"羟秦 (Qiǎng qín) / 安太乐",in:"Atarax / Hydroxyzine IP / Rezine"}
+  },
+];
+
+// Supply chain routes (from → to)
+const SUPPLY_ROUTES = [
+  { from: [31.0, 121.4], to: [46.2, 2.3], label: "Chine → France (API Amoxicilline)" },
+  { from: [31.0, 121.4], to: [52.5, 13.4], label: "Chine → Europe (Antibiotiques)" },
+  { from: [23.0, 72.6], to: [38.9, -77.0], label: "Inde (Gujarat) → USA (Oncologie)" },
+  { from: [28.6, 77.2], to: [50.8, 4.4], label: "Inde (Delhi) → Europe (Pénicilline)" },
+  { from: [1.4, 103.8], to: [48.9, 2.3], label: "Singapour → France (Paracétamol)" },
+  { from: [31.0, 121.4], to: [52.4, 4.9], label: "Chine → Pays-Bas (Doxycycline API)" },
+];
+
+// ═══════════════════════════════════════════
+//  THREE.JS GLOBE
+// ═══════════════════════════════════════════
+
+const container = document.getElementById('canvas-container');
+const W = window.innerWidth, H = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0xf0f4f8, 1);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, W/H, 0.1, 1000);
+camera.position.z = 2.8;
+
+// Lumières
+const ambientLight = new THREE.AmbientLight(0x112244, 0.8);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0x4fc3f7, 0.6);
+dirLight.position.set(5, 3, 5);
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0x001133, 1.0);
+rimLight.position.set(-5, -3, -2);
+scene.add(rimLight);
+
+// Globe principal avec texture locale
+const textureLoader = new THREE.TextureLoader();
+const globeGeo = new THREE.SphereGeometry(1, 64, 64);
+const earthTexture = textureLoader.load('./earth_atmos_2048.jpg');
+const globeMat = new THREE.MeshPhongMaterial({
+  map: earthTexture, specular: 0x2244aa, shininess: 25,
+});
+const globe = new THREE.Mesh(globeGeo, globeMat);
+scene.add(globe);
+const cloudsMat = new THREE.MeshPhongMaterial({
+  map: textureLoader.load('./earth_clouds_1024.png'),
+  transparent: true, opacity: 0.18, depthWrite: false,
+});
+const clouds = new THREE.Mesh(new THREE.SphereGeometry(1.005,64,64), cloudsMat);
+scene.add(clouds);
+
+// Sphère wireframe (grille géographique)
+const wireGeo = new THREE.SphereGeometry(1.001, 32, 32);
+const wireMat = new THREE.MeshBasicMaterial({
+  color: 0x1a3a5c,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.08,
+});
+const wireFrame = new THREE.Mesh(wireGeo, wireMat);
+scene.add(wireFrame);
+
+// Atmosphère
+const atmGeo = new THREE.SphereGeometry(1.12, 64, 64);
+const atmMat = new THREE.MeshPhongMaterial({
+  color: 0x0d1f40,
+  emissive: 0x0a1830,
+  transparent: true,
+  opacity: 0.18,
+  side: THREE.BackSide,
+});
+const atmosphere = new THREE.Mesh(atmGeo, atmMat);
+scene.add(atmosphere);
+
+// Halo extérieur
+const haloGeo = new THREE.SphereGeometry(1.2, 64, 64);
+const haloMat = new THREE.MeshBasicMaterial({
+  color: 0x4fc3f7,
+  transparent: true,
+  opacity: 0.04,
+  side: THREE.BackSide,
+});
+scene.add(new THREE.Mesh(haloGeo, haloMat));
+
+// Conversion lat/lon → position 3D
+function latLonToVec3(lat, lon, r = 1) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (lon + 180) * Math.PI / 180;
+  return new THREE.Vector3(
+    -r * Math.sin(phi) * Math.cos(theta),
+     r * Math.cos(phi),
+     r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+// Couleur par sévérité
+const SEV_COLOR = {
+  critique:  0xff3d57,
+  tension:   0xff9800,
+  vigilance: 0xffd600,
+};
+const SEV_HEX = {
+  critique:  '#ff3d57',
+  tension:   '#ff9800',
+  vigilance: '#ffd600',
+};
+
+// Points de pénurie
+const pointObjects = [];
+const pointGroup = new THREE.Group();
+scene.add(pointGroup);
+
+SHORTAGES.forEach((s, i) => {
+  const pos = latLonToVec3(s.lat, s.lon, 1.01);
+  const color = SEV_COLOR[s.severity];
+
+  // Sphère principale
+  const geo = new THREE.SphereGeometry(0.012, 12, 12);
+  const mat = new THREE.MeshBasicMaterial({ color });
+  const dot = new THREE.Mesh(geo, mat);
+  dot.position.copy(pos);
+  dot.userData = { index: i, type: 'dot' };
+
+  // Ring pulsant
+  const ringGeo = new THREE.RingGeometry(0.018, 0.022, 24);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.7, side: THREE.DoubleSide,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.copy(pos);
+  ring.lookAt(new THREE.Vector3(0,0,0));
+  ring.userData = { phase: Math.random() * Math.PI * 2, type: 'ring', index: i };
+
+  // Halo glow
+  const glowGeo = new THREE.SphereGeometry(0.022, 12, 12);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.2,
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.copy(pos);
+
+  pointGroup.add(dot);
+  pointGroup.add(ring);
+  pointGroup.add(glow);
+  pointObjects.push({ dot, ring, glow, data: s });
+});
+
+// Lignes de supply chain
+const lineGroup = new THREE.Group();
+scene.add(lineGroup);
+
+function makeSupplyArc(fromLatLon, toLatLon) {
+  const from = latLonToVec3(fromLatLon[0], fromLatLon[1], 1.01);
+  const to = latLonToVec3(toLatLon[0], toLatLon[1], 1.01);
+  const mid = from.clone().add(to).normalize().multiplyScalar(1.35);
+  const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+  const pts = curve.getPoints(60);
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x4fc3f7,
+    transparent: true,
+    opacity: 0.2,
+  });
+  return new THREE.Line(geo, mat);
+}
+
+SUPPLY_ROUTES.forEach(r => {
+  const line = makeSupplyArc(r.from, r.to);
+  line.userData = { type: 'supply', label: r.label };
+  lineGroup.add(line);
+});
+
+// Particules de fond (étoiles)
+const starGeo = new THREE.BufferGeometry();
+const starPos = [];
+for (let i = 0; i < 2000; i++) {
+  starPos.push((Math.random()-0.5)*80, (Math.random()-0.5)*80, (Math.random()-0.5)*80);
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ color: 0x4a6a8a, size: 0.05, transparent: true, opacity: 0.6 });
+scene.add(new THREE.Points(starGeo, starMat));
+
+// ── INDICATIONS + SOURCE TYPE ───────────────────────────────────
+const INDICATIONS = {
+  "Amoxicilline 500mg":["infection bacterienne","pneumonie","otite"],
+  "Amoxicilline/Acide clavulanique":["infection resistante","sinusite","bronchite"],
+  "Cisplatine (chimiotherapie)":["cancer","tumeur solide","oncologie"],
+  "Cisplatine (chimiothérapie)":["cancer","tumeur solide","oncologie"],
+  "Carboplatine":["cancer","ovaire","poumon"],
+  "Methotrexate injectable":["cancer","polyarthrite","psoriasis"],
+  "Méthotrexate injectable":["cancer","polyarthrite","psoriasis"],
+  "Adderall (amphetamine)":["TDAH","narcolepsie"],
+  "Adderall (amphétamine)":["TDAH","narcolepsie"],
+  "Morphine injectable":["douleur severe","soins palliatifs","post-operatoire"],
+  "Furosemide 40mg":["insuffisance cardiaque","oedeme","hypertension"],
+  "Furosémide 40mg":["insuffisance cardiaque","oedeme","hypertension"],
+  "Paracetamol IV":["douleur","fievre","post-operatoire"],
+  "Paracétamol IV":["douleur","fievre","post-operatoire"],
+  "Insuline humaine NPH":["diabete type 1","diabete type 2"],
+  "Propofol (anesthesie)":["anesthesie generale","sedation","chirurgie"],
+  "Propofol (anesthésie)":["anesthesie generale","sedation","chirurgie"],
+  "Azithromycine 250mg":["infection respiratoire","pneumonie","IST"],
+  "Ibuprofen pediatrique":["fievre","douleur","inflammation"],
+  "Ibuprofen pédiatrique":["fievre","douleur","inflammation"],
+  "Ventoline (salbutamol)":["asthme","bronchospasme","BPCO"],
+  "Paracetamol sirop enfant":["fievre","douleur pediatrique"],
+  "Paracétamol sirop enfant":["fievre","douleur pediatrique"],
+  "Penicilline G injectable":["infection bacterienne","syphilis","meningite"],
+  "Pénicilline G injectable":["infection bacterienne","syphilis","meningite"],
+  "Lisinopril 10mg":["hypertension","insuffisance cardiaque","post-infarctus"],
+  "Metformine XR":["diabete type 2","resistance insuline"],
+  "Clonazepam 0.5mg":["epilepsie","anxiete","troubles paniques"],
+  "Clonazépam 0.5mg":["epilepsie","anxiete","troubles paniques"],
+  "Doxycycline 100mg":["infection bacterienne","paludisme","acne"],
+  "Atropine ophtalmique":["myopie","examen ophtalmologique","uveite"],
+  "Fentanyl transdermique":["douleur chronique","cancer","soins palliatifs"],
+  "Vancomycine IV":["infection resistante","staphylocoque","meningite"],
+  "Ondansetron 4mg":["nausees","vomissements","chimiotherapie"],
+  "Heparine sodique":["thrombose","embolie","anticoagulation"],
+  "Héparine sodique":["thrombose","embolie","anticoagulation"],
+  "Methylphenidate":["TDAH","narcolepsie"],
+  "Chlorhexidine solution":["antisepsie","desinfection","chirurgie"],
+  "Levothyroxine 100µg":["hypothyroidie","thyroide"],
+  "Lévothyroxine 100µg":["hypothyroidie","thyroide"],
+  "Acide folique 5mg":["anemie","grossesse","carence"],
+  "Atorvastatine 40mg":["cholesterol","prevention cardiovasculaire"],
+  "Prednisolone 5mg":["inflammation","allergie","auto-immune"],
+  "Hydroxychloroquine":["lupus","polyarthrite","paludisme"],
+  "Tacrolimus 1mg":["transplantation","rejet organe","immunosuppression"],
+  "Rifampicine":["tuberculose","meningite","infection grave"],
+  "Gentamicine ophtalmique":["infection oculaire","conjonctivite"],
+  "Vincristine injectable":["cancer","leucemie","lymphome"],
+  "Morphine sulfate oral":["douleur chronique","cancer","soins palliatifs"],
+  "Lorazepam injectable":["epilepsie","anxiete aigue","sedation"],
+  "Lorazépam injectable":["epilepsie","anxiete aigue","sedation"],
+  "Amikacine injectable":["infection grave","sepsis","resistance"],
+  "Piperacilline-Tazobactam":["infection grave","sepsis","pneumonie"],
+  "Pipéracilline-Tazobactam":["infection grave","sepsis","pneumonie"],
+  "Noradrenaline injectable":["choc septique","hypotension","reanimation"],
+  "Noradrénaline injectable":["choc septique","hypotension","reanimation"],
+  "Midazolam injectable":["anesthesie","sedation","epilepsie"],
+  "Cytarabine injectable":["leucemie","cancer","chimiotherapie"],
+  "Bicarbonate de sodium IV":["acidose","reanimation","urgence"],
+  "Hydroxyzine 25mg":["anxiete","allergie","sedation legere"],
+};
+
+const IND_COLORS = {
+  "cancer":"#ff3d57","leucemie":"#ff3d57","lymphome":"#ff3d57",
+  "tumeur solide":"#ff3d57","oncologie":"#ff3d57","chimiotherapie":"#ff3d57",
+  "douleur":"#ff9800","douleur severe":"#ff9800","douleur chronique":"#ff9800",
+  "soins palliatifs":"#ff9800","post-operatoire":"#ff9800",
+  "diabete type 1":"#ffd600","diabete type 2":"#ffd600",
+  "infection bacterienne":"#4fc3f7","infection grave":"#4fc3f7",
+  "infection resistante":"#4fc3f7","sepsis":"#4fc3f7","meningite":"#4fc3f7",
+  "hypertension":"#00e5a0","insuffisance cardiaque":"#00e5a0",
+  "anesthesie generale":"#9c27b0","sedation":"#9c27b0","anesthesie":"#9c27b0",
+  "epilepsie":"#e91e63","anxiete":"#e91e63",
+  "asthme":"#03a9f4","BPCO":"#03a9f4",
+  "transplantation":"#ff5722","rejet organe":"#ff5722",
+  "TDAH":"#00bcd4","narcolepsie":"#00bcd4",
+};
+
+const SRC_TYPE = {
+  "Cisplatine (chimiotherapie)":"fda_live","Cisplatine (chimiothérapie)":"fda_live",
+  "Carboplatine":"fda_live","Adderall (amphetamine)":"fda_live","Adderall (amphétamine)":"fda_live",
+  "Lisinopril 10mg":"fda_live","Hydroxychloroquine":"fda_live",
+  "Vincristine injectable":"fda_live","Morphine sulfate oral":"fda_live",
+  "Lorazepam injectable":"fda_live","Lorazépam injectable":"fda_live",
+  "Cytarabine injectable":"fda_live","Methylphenidate":"fda_live","Metformine XR":"fda_live",
+  "Amoxicilline 500mg":"ansm_live","Amoxicilline/Acide clavulanique":"ansm_live",
+  "Ventoline (salbutamol)":"ansm_live","Paracetamol sirop enfant":"ansm_live",
+  "Paracétamol sirop enfant":"ansm_live","Levothyroxine 100µg":"ansm_live",
+  "Lévothyroxine 100µg":"ansm_live","Noradrenaline injectable":"ansm_live",
+  "Noradrénaline injectable":"ansm_live","Amikacine injectable":"ansm_live",
+  "Bicarbonate de sodium IV":"ansm_live","Hydroxyzine 25mg":"ansm_live",
+};
+
+function getSrcType(drug) { return SRC_TYPE[drug] || "static"; }
+function getSrcHTML(t) {
+  if (t === "fda_live")  return '<span class="pulse"></span> FDA Live';
+  if (t === "ansm_live") return '<span class="pulse"></span> ANSM Live';
+  return 'Source documentee';
+}
+function getTagColor(tag) {
+  for (const [k, c] of Object.entries(IND_COLORS)) {
+    if (tag.toLowerCase().indexOf(k.toLowerCase()) !== -1) return c;
+  }
+  return "#c8d8e8";
+}
+// ────────────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════
+//  INTERACTION — rotation, raycasting
+// ═══════════════════════════════════════════
+
+let isDragging = false;
+let prevMouse = { x: 0, y: 0 };
+let rotVel = { x: 0, y: 0 };
+let targetRot = { x: 0.3, y: 0 };
+let currentRot = { x: 0.3, y: 0 };
+const globeGroup = new THREE.Group();
+scene.add(globeGroup);
+globeGroup.add(globe);
+globeGroup.add(wireFrame);
+globeGroup.add(pointGroup);
+globeGroup.add(lineGroup);
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('mousedown', e => {
+  isDragging = true;
+  prevMouse = { x: e.clientX, y: e.clientY };
+  rotVel = { x: 0, y: 0 };
+});
+
+renderer.domElement.addEventListener('mousemove', e => {
+  // Tooltip raycasting
+  mouse.x = (e.clientX / W) * 2 - 1;
+  mouse.y = -(e.clientY / H) * 2 + 1;
+  handleHover(e.clientX, e.clientY);
+
+  if (!isDragging) return;
+  const dx = e.clientX - prevMouse.x;
+  const dy = e.clientY - prevMouse.y;
+  rotVel.y = dx * 0.005;
+  rotVel.x = dy * 0.005;
+  targetRot.y += rotVel.y;
+  targetRot.x += rotVel.x;
+  targetRot.x = Math.max(-1.2, Math.min(1.2, targetRot.x));
+  prevMouse = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('mouseup', () => { isDragging = false; });
+renderer.domElement.addEventListener('mouseleave', () => { isDragging = false; });
+
+renderer.domElement.addEventListener('wheel', e => {
+  camera.position.z = Math.max(1.5, Math.min(5, camera.position.z + e.deltaY * 0.003));
+});
+
+// Touch
+renderer.domElement.addEventListener('touchstart', e => {
+  isDragging = true;
+  prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+});
+renderer.domElement.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const dx = e.touches[0].clientX - prevMouse.x;
+  const dy = e.touches[0].clientY - prevMouse.y;
+  targetRot.y += dx * 0.005;
+  targetRot.x += dy * 0.005;
+  prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  e.preventDefault();
+}, { passive: false });
+
+// Touch hover (tap pour tooltip)
+renderer.domElement.addEventListener('touchend', e => {
+  if (e.changedTouches.length > 0) {
+    var t = e.changedTouches[0];
+    mouse.x = (t.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(t.clientY / window.innerHeight) * 2 + 1;
+    handleHover(t.clientX, t.clientY);
+  }
+});
+renderer.domElement.addEventListener('touchend', () => { isDragging = false; });
+
+// Hover / tooltip
+let hoveredIndex = -1;
+
+function handleHover(cx, cy) {
+  raycaster.setFromCamera(mouse, camera);
+  const targets = pointObjects.map(p => p.dot);
+  const hits = raycaster.intersectObjects(targets);
+
+  const tooltip = document.getElementById('tooltip');
+
+  if (hits.length > 0) {
+    const idx = hits[0].object.userData.index;
+    if (idx !== hoveredIndex) {
+      hoveredIndex = idx;
+      var activeData = (liveMode && liveData.length > 0) ? liveData : SHORTAGES;
+      const s = activeData[idx] || pointObjects[idx].data;
+      if (!s) return;
+      document.getElementById('tt-drug').textContent = s.drug;
+      const badge = document.getElementById('tt-badge');
+      badge.textContent = s.severity.toUpperCase();
+      badge.className = 'tt-badge badge-' + s.severity;
+
+      // Badge source
+      var srcEl = document.getElementById('tt-src');
+      var st = getSrcType(s.drug);
+      srcEl.className = 'tt-src ' + st;
+      srcEl.innerHTML = getSrcHTML(st);
+
+      // Tags indications
+      var tagsEl = document.getElementById('tt-tags');
+      tagsEl.innerHTML = '';
+      var inds = INDICATIONS[s.drug] || [];
+      for (var ti = 0; ti < inds.length; ti++) {
+        var sp = document.createElement('span');
+        sp.className = 'tt-tag';
+        var tc = getTagColor(inds[ti]);
+        sp.style.background = tc + '22';
+        sp.style.color = tc;
+        sp.style.border = '1px solid ' + tc + '55';
+        sp.textContent = inds[ti];
+        tagsEl.appendChild(sp);
+      }
+
+      // IUPAC + formule
+      document.getElementById('tt-iupac').textContent = s.iupac || '';
+      document.getElementById('tt-formula').textContent = s.formula || '';
+
+      // Marchés
+      var mEl = document.getElementById('tt-markets');
+      mEl.innerHTML = '';
+      var MKEYS = [
+        {k:'fr',f:'🇫🇷',c:'FR'},{k:'us',f:'🇺🇸',c:'US'},
+        {k:'uk',f:'🇬🇧',c:'UK'},{k:'de',f:'🇩🇪',c:'DE'},
+        {k:'be',f:'🇧🇪',c:'BE'},{k:'cn',f:'🇨🇳',c:'CN'},
+        {k:'in',f:'🇮🇳',c:'IN'}
+      ];
+      if (s.markets) {
+        for (var mi = 0; mi < MKEYS.length; mi++) {
+          var mk = MKEYS[mi];
+          if (!s.markets[mk.k]) continue;
+          var row = document.createElement('div');
+          row.className = 'tt-mrow';
+          row.innerHTML = '<span class="tt-mflag">' + mk.f + '</span>'
+            + '<span class="tt-mcode">' + mk.c + '</span>'
+            + '<span class="tt-mval">' + s.markets[mk.k] + '</span>';
+          mEl.appendChild(row);
+        }
+      }
+
+      document.getElementById('tt-country').textContent = s.country;
+      document.getElementById('tt-cause').textContent = s.cause;
+      document.getElementById('tt-class').textContent = s.class;
+      document.getElementById('tt-source').textContent = s.source;
+      document.getElementById('tt-since').textContent = s.since;
+    }
+    tooltip.classList.add('visible');
+    tooltip.style.left = (cx + 16) + 'px';
+    tooltip.style.top  = (cy - 20) + 'px';
+    // Adjust if off-screen
+    if (cx + 280 > W) tooltip.style.left = (cx - 270) + 'px';
+    if (cy + 160 > H) tooltip.style.top  = (cy - 150) + 'px';
+  } else {
+    hoveredIndex = -1;
+    tooltip.classList.remove('visible');
+  }
+}
+
+// ═══════════════════════════════════════════
+//  FILTRES
+// ═══════════════════════════════════════════
+
+let activeSeverity = 'all';
+var activeSeveritiesArr = [];
+var activeCausesArr = [];
+var activeClassesArr = [];
+
+const causes = [...new Set(SHORTAGES.map(s => s.cause))];
+const classes = [...new Set(SHORTAGES.map(s => s.class))];
+
+function getCauseCount(cause) { return SHORTAGES.filter(s => s.cause === cause).length; }
+function getClassCount(cls) { return SHORTAGES.filter(s => s.class === cls).length; }
+
+function buildFilters() {
+  const causeDiv = document.getElementById('cause-filters');
+  const classDiv = document.getElementById('class-filters');
+
+  causes.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    const count = getCauseCount(c);
+    const label = c.length > 18 ? c.slice(0,18)+'…' : c;
+    btn.innerHTML = '<div class="filter-checkbox" id="cause-'+c.replace(/\s/g,'_')+'"></div>'
+      + '<span style="flex:1;text-align:left">'+label+'</span>'
+      + '<span class="filter-count">'+count+'</span>';
+    btn.onclick = () => toggleCause(c, btn);
+    causeDiv.appendChild(btn);
+  });
+
+  classes.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    const count = getClassCount(c);
+    btn.innerHTML = '<div class="filter-checkbox" id="class-'+c.replace(/\s/g,'_')+'"></div>'
+      + '<span style="flex:1;text-align:left">'+c+'</span>'
+      + '<span class="filter-count">'+count+'</span>';
+    btn.onclick = () => toggleClass(c, btn);
+    classDiv.appendChild(btn);
+  });
+}
+
+function toggleCause(cause, btn) {
+  if (arrHas(activeCausesArr, cause)) {
+    arrDel(activeCausesArr, cause);
+    btn.classList.remove('active-cause');
+    btn.querySelector('.filter-checkbox').classList.remove('checked');
+    btn.querySelector('.filter-checkbox').textContent = '';
+  } else {
+    arrAdd(activeCausesArr, cause);
+    btn.classList.add('active-cause');
+    btn.querySelector('.filter-checkbox').classList.add('checked');
+    btn.querySelector('.filter-checkbox').textContent = '✓';
+  }
+  updateFilters();
+}
+
+function toggleClass(cls, btn) {
+  if (arrHas(activeClassesArr, cls)) {
+    arrDel(activeClassesArr, cls);
+    btn.classList.remove('active-class');
+    btn.querySelector('.filter-checkbox').classList.remove('checked');
+    btn.querySelector('.filter-checkbox').textContent = '';
+  } else {
+    arrAdd(activeClassesArr, cls);
+    btn.classList.add('active-class');
+    btn.querySelector('.filter-checkbox').classList.add('checked');
+    btn.querySelector('.filter-checkbox').textContent = '✓';
+  }
+  updateFilters();
+}
+
+
+// Helpers tableaux (remplacement Set — compatible tous Safari)
+function arrHas(arr, val) { return arr.indexOf(val) !== -1; }
+function arrAdd(arr, val) { if (!arrHas(arr, val)) arr.push(val); }
+function arrDel(arr, val) { var i = arr.indexOf(val); if (i !== -1) arr.splice(i, 1); }
+function arrClear(arr) { arr.length = 0; }
+
+window.setSeverity = function(sev) {
+  // Le CSS gère les couleurs via [data-severity="X"].active
+  // JS ne fait QUE ajouter/retirer la classe 'active'
+
+  if (sev === 'all') {
+    arrClear(activeSeveritiesArr);
+    activeSeverity = 'all';
+    document.querySelectorAll('[data-severity]').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-severity') === 'all');
+    });
+  } else {
+    // Retirer 'active' de "Toutes"
+    document.querySelectorAll('[data-severity="all"]').forEach(function(b) {
+      b.classList.remove('active');
+    });
+
+    if (arrHas(activeSeveritiesArr, sev)) {
+      arrDel(activeSeveritiesArr, sev);
+      document.querySelectorAll('[data-severity="' + sev + '"]').forEach(function(b) {
+        b.classList.remove('active');
+      });
+    } else {
+      arrAdd(activeSeveritiesArr, sev);
+      document.querySelectorAll('[data-severity="' + sev + '"]').forEach(function(b) {
+        b.classList.add('active');
+      });
+    }
+
+    if (activeSeveritiesArr.length === 0) {
+      activeSeverity = 'all';
+      document.querySelectorAll('[data-severity="all"]').forEach(function(b) {
+        b.classList.add('active');
+      });
+    } else {
+      activeSeverity = 'custom';
+    }
+  }
+
+  updateFilters();
+};
+
+function updateFilters() {
+  updateRain();
+  console.log('updateFilters — activeSeveritiesArr:', JSON.stringify(activeSeveritiesArr), 'pointObjects.length:', pointObjects.length);
+  pointObjects.forEach(function(p) {
+    var data = p.data;
+    if (!data) { console.log('WARN: p.data undefined'); return; }
+    var visible = true;
+    if (activeSeveritiesArr.length > 0 && !arrHas(activeSeveritiesArr, data.severity)) visible = false;
+    if (activeCausesArr.length > 0 && !arrHas(activeCausesArr, data.cause)) visible = false;
+    if (activeClassesArr.length > 0 && !arrHas(activeClassesArr, data.class)) visible = false;
+    p.dot.visible = p.ring.visible = p.glow.visible = visible;
+    if (activeSeveritiesArr.length > 0) console.log(data.drug, data.severity, '->', visible);
+  });
+  lineGroup.children.forEach(function(line) {
+    line.visible = activeSeveritiesArr.length === 0 && activeCausesArr.length === 0 && activeClassesArr.length === 0;
+  });
+}
+
+buildFilters();
+buildDrawerFilters();
+updateRain();
+
+// ═══════════════════════════════════════════
+//  BOUCLE D'ANIMATION
+// ═══════════════════════════════════════════
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Rotation auto douce
+  if (!isDragging) {
+    rotVel.y *= 0.96;
+    targetRot.y += 0.0015 + rotVel.y;
+  }
+
+  currentRot.x += (targetRot.x - currentRot.x) * 0.08;
+  currentRot.y += (targetRot.y - currentRot.y) * 0.08;
+  globeGroup.rotation.x = currentRot.x;
+  globeGroup.rotation.y = currentRot.y;
+  if (typeof clouds !== 'undefined') {
+    clouds.rotation.y = currentRot.y * 1.02;
+    clouds.rotation.x = currentRot.x;
+  }
+
+  // Pulsation des rings
+  pointObjects.forEach(({ ring, dot, glow }) => {
+    if (!ring.visible) return;
+    const phase = ring.userData.phase || 0;
+    const pulse = (Math.sin(t * 2.5 + phase) + 1) / 2;
+    ring.material.opacity = 0.2 + pulse * 0.6;
+    const s = 1 + pulse * 0.5;
+    ring.scale.set(s, s, 1);
+    glow.material.opacity = 0.05 + pulse * 0.18;
+  });
+
+  // Pulsation lignes supply
+  lineGroup.children.forEach((line, i) => {
+    const p = (Math.sin(t * 0.8 + i * 1.2) + 1) / 2;
+    line.material.opacity = 0.08 + p * 0.22;
+  });
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// Resize
+window.addEventListener('resize', () => {
+  const W = window.innerWidth, H = window.innerHeight;
+  camera.aspect = W/H;
+  camera.updateProjectionMatrix();
+  renderer.setSize(W, H);
+});
+
+
+// ── PLUIE CONTEXTUELLE ──────────────────────────────────────────
+// Intensité basée sur le nombre de pénuries critiques actives
+function updateRain() {
+  var layer = document.getElementById('rain-layer');
+  layer.innerHTML = '';
+
+  // Compter les pénuries critiques visibles
+  var activeData = (liveMode && liveData.length > 0) ? liveData : SHORTAGES;
+  var critCount = activeData.filter(function(s) {
+    if (activeSeveritiesArr.length > 0 && !arrHas(activeSeveritiesArr, s.severity)) return false;
+    if (activeCausesArr.length > 0 && !arrHas(activeCausesArr, s.cause)) return false;
+    if (activeClassesArr.length > 0 && !arrHas(activeClassesArr, s.class)) return false;
+    return s.severity === 'critique';
+  }).length;
+
+  // 0 critique = pas de pluie, max critique = pluie dense
+  var maxDrops = 60;
+  var drops = Math.round((critCount / 17) * maxDrops);
+  drops = Math.max(0, Math.min(drops, maxDrops));
+
+  for (var i = 0; i < drops; i++) {
+    var drop = document.createElement('div');
+    drop.className = 'rain-drop';
+    drop.style.left = (Math.random() * 100) + 'vw';
+    drop.style.height = (15 + Math.random() * 35) + 'px';
+    drop.style.animationDuration = (0.5 + Math.random() * 1.0) + 's';
+    drop.style.animationDelay = (Math.random() * 3) + 's';
+    drop.style.opacity = (0.3 + Math.random() * 0.5).toString();
+    layer.appendChild(drop);
+  }
+}
+
+// Appeler updateRain à chaque changement de filtre
+// ────────────────────────────────────────────────────────────────
+
+
+
+// ── DONNÉES LIVE — openFDA + ANSM RSS ───────────────────────────
+var liveMode = false;
+var liveData = [];
+var lastUpdate = null;
+
+function setLiveIndicator(on) {
+  var ind = document.getElementById('live-indicator');
+  var sw  = document.getElementById('live-switch');
+  var lbl = document.getElementById('live-switch-label');
+  if (on) {
+    ind.classList.add('active');
+    sw.classList.add('live-on');
+    lbl.textContent = 'Live';
+  } else {
+    ind.classList.remove('active');
+    sw.classList.remove('live-on');
+    lbl.textContent = 'Statique';
+  }
+}
+
+function toggleLiveMode() {
+  if (!liveMode) {
+    fetchAllLive();
+  } else {
+    liveMode = false;
+    setLiveIndicator(false);
+    document.getElementById('data-date').style.display = 'none';
+    rebuildPoints(SHORTAGES);
+  }
+}
+
+// Coordonnées approx par pays pour les données FDA
+var COUNTRY_COORDS = {
+  'US':  {lat:38.9,  lon:-77.0},
+  'USA': {lat:38.9,  lon:-77.0},
+  'FR':  {lat:46.2,  lon:2.3},
+  'DE':  {lat:51.1,  lon:10.4},
+  'GB':  {lat:51.5,  lon:-0.1},
+  'UK':  {lat:51.5,  lon:-0.1},
+  'CA':  {lat:45.4,  lon:-75.7},
+  'AU':  {lat:-25.3, lon:133.8},
+  'JP':  {lat:35.7,  lon:139.7},
+  'IT':  {lat:41.9,  lon:12.5},
+  'ES':  {lat:40.4,  lon:-3.7},
+  'NL':  {lat:52.4,  lon:4.9},
+  'BE':  {lat:50.8,  lon:4.4},
+  'CH':  {lat:46.8,  lon:8.2},
+  'SE':  {lat:59.3,  lon:18.1},
+  'IN':  {lat:20.6,  lon:79.1},
+  'BR':  {lat:-15.8, lon:-47.9},
+  'CN':  {lat:39.9,  lon:116.4},
+};
+
+function getCountryCoords(code) {
+  return COUNTRY_COORDS[code] || {lat:20, lon:0};
+}
+
+async function fetchAllLive() {
+  var results = [];
+  var ok = false;
+
+  // ── openFDA ──────────────────────────────────────────────────
+  try {
+    var fdaUrl = 'https://corsproxy.io/?' +
+      encodeURIComponent('https://api.fda.gov/drug/shortages.json?search=status:%22Current%22&limit=100');
+    var res = await fetch(fdaUrl, {signal: AbortSignal.timeout(6000)});
+    if (res.ok) {
+      var data = await res.json();
+      if (data.results) {
+        data.results.forEach(function(f) {
+          var name = f.generic_name || f.drug_name || 'Inconnu';
+          var coords = getCountryCoords('US');
+          // Chercher si on a déjà cette molécule dans SHORTAGES
+          var existing = SHORTAGES.find(function(s) {
+            return s.drug.toLowerCase().indexOf(name.toLowerCase().split(' ')[0]) !== -1;
+          });
+          results.push({
+            drug: name,
+            country: 'USA',
+            lat: coords.lat + (Math.random()-0.5)*4,
+            lon: coords.lon + (Math.random()-0.5)*4,
+            severity: f.shortage_reason ? 'tension' : 'critique',
+            cause: f.shortage_reason || 'Indéterminée',
+            class: existing ? existing.class : 'Autre',
+            source: 'FDA Live',
+            since: f.initial_posting_date ? f.initial_posting_date.slice(0,7) : '2024',
+            iupac: existing ? existing.iupac : '',
+            formula: existing ? existing.formula : '',
+            markets: existing ? existing.markets : {},
+            _live: true,
+            _source: 'fda'
+          });
+        });
+        ok = true;
+        console.log('FDA live: ' + results.length + ' pénuries');
+      }
+    }
+  } catch(e) { console.log('FDA indisponible:', e.message); }
+
+  // ── ANSM RSS ─────────────────────────────────────────────────
+  try {
+    var ansmUrl = 'https://corsproxy.io/?' +
+      encodeURIComponent('https://ansm.sante.fr/actualites/ruptures-de-stock-des-medicaments.rss');
+    var res2 = await fetch(ansmUrl, {signal: AbortSignal.timeout(6000)});
+    if (res2.ok) {
+      var xml = new DOMParser().parseFromString(await res2.text(), 'text/xml');
+      var items = xml.querySelectorAll('item');
+      var ansmCount = 0;
+      items.forEach(function(item) {
+        var title = item.querySelector('title') ? item.querySelector('title').textContent : '';
+        var pubDate = item.querySelector('pubDate') ? item.querySelector('pubDate').textContent : '';
+        // Chercher correspondance dans SHORTAGES
+        var existing = SHORTAGES.find(function(s) {
+          return s.country === 'France' &&
+            title.toLowerCase().indexOf(s.drug.split(' ')[0].toLowerCase()) !== -1;
+        });
+        if (existing) {
+          existing.ansm_confirmed = true;
+          existing._live = true;
+          ansmCount++;
+        }
+      });
+      ok = true;
+      console.log('ANSM RSS: ' + ansmCount + ' correspondances');
+    }
+  } catch(e) { console.log('ANSM indisponible:', e.message); }
+
+  // ── Merge : statiques + FDA live (dédupliqués) ───────────────
+  if (ok) {
+    // Garder les statiques + ajouter FDA live non-dupliqués
+    var merged = SHORTAGES.slice();
+    results.forEach(function(r) {
+      var dup = merged.find(function(s) {
+        return s.drug.toLowerCase().indexOf(r.drug.toLowerCase().split(' ')[0]) !== -1;
+      });
+      if (!dup) merged.push(r);
+      else { dup._live = true; dup.fda_confirmed = true; }
+    });
+
+    liveData = merged;
+    liveMode = true;
+    lastUpdate = new Date();
+    setLiveIndicator(true);
+
+    var dateEl = document.getElementById('data-date');
+    dateEl.textContent = 'Mis à jour ' + lastUpdate.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    dateEl.style.display = 'block';
+
+    rebuildPoints(liveData);
+    updateRain();
+
+    // Mettre à jour le live-badge
+    var badge = document.querySelector('#live-badge span');
+    if (badge) badge.textContent = 'Live — ' + lastUpdate.toLocaleDateString('fr-FR');
+
+  } else {
+    // Tout a échoué → rester en statique
+    alert('Données live indisponibles — mode statique actif');
+    setLiveIndicator(false);
+  }
+}
+
+// Reconstruire les points 3D depuis un tableau de données
+function rebuildPoints(data) {
+  // Supprimer anciens points
+  pointObjects.forEach(function(p) {
+    globeGroup.remove(p.dot);
+    globeGroup.remove(p.ring);
+    globeGroup.remove(p.glow);
+  });
+  pointObjects.length = 0;
+
+  data.forEach(function(s, i) {
+    var pos = latLonToVec3(s.lat, s.lon, 1.01);
+    var color = SEV_COLOR[s.severity] || SEV_COLOR.tension;
+
+    var geo = new THREE.SphereGeometry(0.012, 12, 12);
+    var mat = new THREE.MeshBasicMaterial({color: color});
+    var dot = new THREE.Mesh(geo, mat);
+    dot.position.copy(pos);
+    dot.userData = {index: i, type: 'dot'};
+
+    var ringGeo = new THREE.RingGeometry(0.018, 0.022, 24);
+    var ringMat = new THREE.MeshBasicMaterial({
+      color: color, transparent: true, opacity: 0.7, side: THREE.DoubleSide
+    });
+    var ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(pos);
+    ring.lookAt(new THREE.Vector3(0,0,0));
+    ring.userData = {phase: Math.random()*Math.PI*2, type:'ring', index:i};
+
+    var glowGeo = new THREE.SphereGeometry(0.022, 12, 12);
+    var glowMat = new THREE.MeshBasicMaterial({
+      color: color, transparent: true, opacity: 0.2
+    });
+    var glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.position.copy(pos);
+
+    pointGroup.add(dot);
+    pointGroup.add(ring);
+    pointGroup.add(glow);
+    pointObjects.push({dot:dot, ring:ring, glow:glow, data:s});
+  });
+
+  updateFilters();
+}
+// ─────────────────────────────────────────────────────────────────
+
+// ── DRAWER MOBILE ────────────────────────────────────────────────
+var drawerOpen = false;
+
+function toggleDrawer() {
+  drawerOpen = !drawerOpen;
+  var d = document.getElementById('drawer');
+  d.classList.toggle('open', drawerOpen);
+  document.getElementById('drawer-toggle').style.opacity = drawerOpen ? '0' : '1';
+}
+
+// Fermer drawer au clic sur le globe
+document.getElementById('canvas-container').addEventListener('touchstart', function() {
+  if (drawerOpen) toggleDrawer();
+}, { passive: true });
+
+// Filtre sévérité dans le drawer (synchronisé avec panel gauche)
+function drawerSev(sev) {
+  // Synchroniser avec setSeverity du panel gauche
+  window.setSeverity(sev);
+
+  // Mettre à jour visuellement les boutons drawer
+  document.querySelectorAll('[data-dsev]').forEach(function(btn) {
+    btn.classList.remove('active','active-critique','active-tension','active-vigilance');
+  });
+
+  if (sev === 'all') {
+    var allBtn = document.querySelector('[data-dsev="all"]');
+    if (allBtn) allBtn.classList.add('active');
+  } else {
+    document.querySelectorAll('[data-dsev="' + sev + '"]').forEach(function(btn) {
+      btn.classList.add('active-' + sev);
+    });
+  }
+}
+
+// Construire les filtres cause/classe dans le drawer
+function buildDrawerFilters() {
+  var causeDiv = document.getElementById('d-cause-filters');
+  var classDiv = document.getElementById('d-class-filters');
+  if (!causeDiv || !classDiv) return;
+
+  causes.forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.className = 'drawer-filter-btn';
+    btn.setAttribute('data-dcause', c);
+    btn.textContent = (c.length > 20 ? c.slice(0,20)+'…' : c);
+    btn.onclick = function() {
+      toggleCause(c, btn);
+      btn.classList.toggle('active', arrHas(activeCausesArr, c));
+    };
+    causeDiv.appendChild(btn);
+  });
+
+  classes.forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.className = 'drawer-filter-btn';
+    btn.setAttribute('data-dclass', c);
+    btn.textContent = c;
+    btn.onclick = function() {
+      toggleClass(c, btn);
+      btn.classList.toggle('active', arrHas(activeClassesArr, c));
+    };
+    classDiv.appendChild(btn);
+  });
+}
+
+// Touch hover pour le tooltip sur mobile
+var lastTouchTarget = null;
+renderer.domElement.addEventListener('touchstart', function(e) {
+  var touch = e.touches[0];
+  mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+  handleHover(touch.clientX, touch.clientY);
+}, { passive: true });
+// ────────────────────────────────────────────────────────────────
+
+// ── THEME TOGGLE ────────────────────────────────────────────────
+function setTheme(mode) {
+  if (mode === 'light') {
+    document.body.classList.add('theme-light');
+    renderer.setClearColor(0xf0f4f8, 1);
+    document.getElementById('btn-light').classList.add('active');
+    document.getElementById('btn-dark').classList.remove('active');
+  } else {
+    document.body.classList.remove('theme-light');
+    renderer.setClearColor(0x050810, 1);
+    document.getElementById('btn-dark').classList.add('active');
+    document.getElementById('btn-light').classList.remove('active');
+  }
+}
+// ────────────────────────────────────────────────────────────────
+
+// Ticker update
+const tickerMsgs = [
+  "→ <span>45 pénuries</span> documentées sur 20 pays &nbsp;·&nbsp; Sources : openFDA · ANSM · EMA · WHO",
+  "→ <span>Amoxicilline</span> : rupture de stock sur 3 marchés européens depuis nov. 2022",
+  "→ <span>Oncologie</span> : fermeture d'usine Intas (Inde) provoque pénurie mondiale de cisplatine",
+  "→ <span>Antibiotiques</span> : 70% des principes actifs mondiaux produits en Chine et en Inde",
+];
+let tickIdx = 0;
+setInterval(() => {
+  tickIdx = (tickIdx + 1) % tickerMsgs.length;
+  document.getElementById('ticker').innerHTML = tickerMsgs[tickIdx];
+}, 5000);
+
+</script>
+</body>
+</html>
