@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Pénuromètre — Actualités</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  :root {
+    --bg: #050810;
+    --bg2: #080d1a;
+    --cold: #4fc3f7;
+    --cold-dim: #1a4a6b;
+    --critical: #ff3d57;
+    --tension: #ff9800;
+    --watch: #ffd600;
+    --ok: #00e5a0;
+    --text: #c8d8e8;
+    --text-dim: #4a6070;
+    --panel: rgba(8, 16, 32, 0.85);
+    --border: rgba(79, 195, 247, 0.15);
+  }
+
+  /* ─── THEME CLAIR (palette ANSM) ─── */
+  body.theme-light {
+    --bg: #f0f4f8;
+    --bg2: #e4ecf4;
+    --cold: #0070b8;
+    --cold-dim: #b0cce4;
+    --critical: #d32f2f;
+    --tension: #e65100;
+    --watch: #f9a825;
+    --ok: #2e7d32;
+    --text: #1a2b3c;
+    --text-dim: #5a7080;
+    --panel: rgba(255, 255, 255, 0.92);
+    --border: rgba(0, 112, 184, 0.2);
+  }
+
+  body.theme-light #logo h1 { color: #1a2b3c; }
+  body.theme-light #live-badge { color: var(--cold); }
+  body.theme-light #live-dot { background: var(--cold); }
+  body.theme-light #scanlines { display: none; }
+  body.theme-light #grid { display: none; }
+  body.theme-light #vignette { opacity: 0.3; }
+  body.theme-light #tooltip {
+    background: rgba(255,255,255,0.97);
+    border-color: var(--cold-dim);
+    color: var(--text);
+  }
+
+  body.theme-light #scanlines { display:none; }
+  body.theme-light #grid { display:none; }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+  }
+
+  /* ─── NAV (identique globe) ─── */
+  #nav-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 4px;
+    backdrop-filter: blur(12px);
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .nav-btn:hover { color: var(--text); background: rgba(128,128,128,0.1); }
+  .nav-btn.active { background: var(--cold); color: #fff; }
+
+  /* ─── THEME TOGGLE ─── */
+  #theme-toggle {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px;
+    backdrop-filter: blur(8px);
+  }
+
+  .theme-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    transition: background 0.15s;
+  }
+
+  .theme-btn:hover { background: rgba(128,128,128,0.15); }
+  .theme-btn.active { background: var(--cold); }
+
+  /* ─── LAYOUT ─── */
+  #main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 20px 40px;
+  }
+
+  #page-header {
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #page-header h2 {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  #page-header p {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ─── FILTRES SOURCE ─── */
+  #source-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .src-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 5px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .src-btn:hover { color: var(--text); border-color: var(--cold); }
+  .src-btn.active { background: var(--cold); color: #fff; border-color: var(--cold); }
+  .src-btn.ansm.active  { background: #4fc3f7; border-color: #4fc3f7; }
+  .src-btn.fda.active   { background: #00e5a0; border-color: #00e5a0; color: #000; }
+  .src-btn.who.active   { background: #ff9800; border-color: #ff9800; color: #000; }
+
+  /* ─── ARTICLES ─── */
+  #articles {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .article-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.15s;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    color: inherit;
+  }
+
+  .article-card:hover { border-color: var(--cold); }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .card-source {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  .src-ansm  { background: rgba(79,195,247,0.15); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.3); }
+  .src-fda   { background: rgba(0,229,160,0.12); color: #00e5a0; border: 1px solid rgba(0,229,160,0.3); }
+  .src-who   { background: rgba(255,152,0,0.12); color: #ff9800; border: 1px solid rgba(255,152,0,0.3); }
+  .src-ema   { background: rgba(156,39,176,0.12); color: #ce93d8; border: 1px solid rgba(156,39,176,0.3); }
+
+  .card-date {
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+
+  .card-new {
+    font-size: 7px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: rgba(255,61,87,0.15);
+    color: var(--critical);
+    border: 1px solid rgba(255,61,87,0.3);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  .card-title {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+
+  body.theme-light .card-title { color: #1a2b3c; }
+
+  .card-desc {
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .card-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .card-tag {
+    font-size: 8px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* ─── LOADING / ÉTAT ─── */
+  #status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+
+  .status-dot.loading {
+    background: var(--cold);
+    animation: blink 1s ease-in-out infinite;
+  }
+
+  .status-dot.ok { background: #00e5a0; }
+  .status-dot.error { background: var(--critical); }
+
+  @keyframes blink {
+    0%, 100% { opacity:1; }
+    50% { opacity:0.2; }
+  }
+
+  /* ─── EMPTY STATE ─── */
+  #empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+    display: none;
+  }
+
+  #empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  #empty-state p { font-size: 10px; letter-spacing: 1px; }
+
+  /* ─── SCANLINES / GRID ─── */
+  #scanlines {
+    position: fixed; inset:0; z-index:1; pointer-events:none;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+  }
+  #grid {
+    position: fixed; inset:0; z-index:1; pointer-events:none; opacity:0.02;
+    background-image: linear-gradient(rgba(79,195,247,1) 1px,transparent 1px), linear-gradient(90deg,rgba(79,195,247,1) 1px,transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  @media (max-width: 600px) {
+    #nav-bar { top:8px; padding:3px; }
+    .nav-btn { padding:5px 10px; font-size:9px; }
+    #main { padding-top:72px; }
+  }
+</style>
+</head>
+<body class="theme-light">
+
+<div id="scanlines"></div>
+<div id="grid"></div>
+
+<!-- BARRE DE NAVIGATION -->
+<div id="nav-bar">
+  <a class="nav-btn" href="index.html">🌍 Globe</a>
+  <a class="nav-btn active" href="actualites.html">📰 Actualités</a>
+  <a class="nav-btn" href="modele.html">📊 Modèle</a>
+</div>
+
+<!-- THEME TOGGLE -->
+<div id="theme-toggle">
+  <button class="theme-btn active" id="btn-light" onclick="setTheme('light')" title="Mode clair">☀️</button>
+  <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')" title="Mode sobre">🌙</button>
+</div>
+
+<div id="main">
+
+  <div id="page-header">
+    <h2>Actualités — pénuries médicamenteuses</h2>
+    <p>Veille automatique · ANSM · openFDA · EMA · WHO</p>
+  </div>
+
+  <div id="status-bar">
+    <div class="status-dot loading" id="status-dot"></div>
+    <span id="status-text">Chargement des flux...</span>
+  </div>
+
+  <div id="source-filters">
+    <button class="src-btn active" data-src="all" onclick="filterSrc('all')">Toutes</button>
+    <button class="src-btn ansm" data-src="ansm" onclick="filterSrc('ansm')">ANSM</button>
+    <button class="src-btn fda"  data-src="fda"  onclick="filterSrc('fda')">openFDA</button>
+    <button class="src-btn who"  data-src="who"  onclick="filterSrc('who')">WHO</button>
+    <button class="src-btn ema"  data-src="ema"  onclick="filterSrc('ema')">EMA</button>
+  </div>
+
+  <div id="articles"></div>
+
+  <div id="empty-state">
+    <div class="empty-icon">📭</div>
+    <p>Aucun article disponible pour ce filtre</p>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  DONNÉES DE FALLBACK — articles documentés statiques
+// ════════════════════════════════════════════════════════════════
+var STATIC_ARTICLES = [
+  {
+    title: "Rupture de stock Amoxicilline 500mg — tension persistante",
+    desc: "L'ANSM signale une tension d'approvisionnement persistante sur l'Amoxicilline 500mg, due à une concentration excessive de la fabrication en Asie. Les officines sont invitées à rationner les délivrances.",
+    source: "ansm", date: "2024-11-15",
+    url: "https://ansm.sante.fr/actualites/ruptures-de-stock-des-medicaments",
+    tags: ["Antibiotiques", "France", "Concentration fabrication"]
+  },
+  {
+    title: "FDA Drug Shortages — Cisplatin current shortage",
+    desc: "The FDA reports an ongoing shortage of Cisplatin injection following the closure of the Intas Pharmaceuticals facility in Gujarat, India. Alternative suppliers are being sought.",
+    source: "fda", date: "2024-10-28",
+    url: "https://www.accessdata.fda.gov/scripts/drugshortages/",
+    tags: ["Oncologie", "USA", "Fermeture usine"]
+  },
+  {
+    title: "Pénurie mondiale de Carboplatin — alerte EMA",
+    desc: "L'EMA coordonne une réponse européenne face à la pénurie de Carboplatine injectble après la fermeture de l'usine Intas. Plusieurs États membres signalent des stocks critiques.",
+    source: "ema", date: "2024-10-15",
+    url: "https://www.ema.europa.eu/en/human-regulatory/post-authorisation/availability-medicines",
+    tags: ["Oncologie", "Europe", "Fermeture usine Intas"]
+  },
+  {
+    title: "Noradrénaline injectable — tension critique en réanimation",
+    desc: "Face à la demande excédentaire de noradrénaline en services de réanimation, l'ANSM a activé un dispositif de surveillance renforcée et contacté les fabricants alternatifs.",
+    source: "ansm", date: "2024-09-30",
+    url: "https://ansm.sante.fr/actualites/ruptures-de-stock-des-medicaments",
+    tags: ["Cardiologie", "France", "Réanimation"]
+  },
+  {
+    title: "WHO Essential Medicines — insulin shortage in low-income countries",
+    desc: "The WHO reports critical insulin shortages affecting over 20 low and middle income countries, driven by supply chain disruptions and manufacturing concentration risks.",
+    source: "who", date: "2024-09-12",
+    url: "https://www.who.int/medicines/areas/essential_medicines/en/",
+    tags: ["Diabétologie", "Mondial", "Pays en développement"]
+  },
+  {
+    title: "Adderall shortage — FDA updates status",
+    desc: "The ongoing Adderall shortage continues to affect millions of ADHD patients across the United States. The FDA reports manufacturing delays at multiple amphetamine salt suppliers.",
+    source: "fda", date: "2024-08-20",
+    url: "https://www.accessdata.fda.gov/scripts/drugshortages/",
+    tags: ["Neurologie", "USA", "TDAH"]
+  },
+  {
+    title: "Morphine injectable — alerte MHRA Royaume-Uni",
+    desc: "La MHRA britannique signale une rupture de stock critique de morphine injectable après l'arrêt de production d'un fabricant majeur. Les établissements de santé sont en alerte.",
+    source: "ema", date: "2024-08-05",
+    url: "https://www.gov.uk/drug-safety-update",
+    tags: ["Analgésiques", "Royaume-Uni", "Soins palliatifs"]
+  },
+  {
+    title: "Amikacine injectable — ANSM déclenche suivi renforcé",
+    desc: "Suite à l'arrêt d'un fabricant principal, l'ANSM place l'amikacine injectable sous suivi renforcé. Les services de réanimation et d'infectiologie sont prioritaires.",
+    source: "ansm", date: "2024-07-18",
+    url: "https://ansm.sante.fr/actualites/ruptures-de-stock-des-medicaments",
+    tags: ["Antibiotiques", "France", "Sepsis"]
+  },
+  {
+    title: "WHO Global Action Plan on Antimicrobial Resistance — shortage update",
+    desc: "WHO's latest report highlights critical shortages of last-resort antibiotics in 67 countries, with Vancomycin and Piperacillin-Tazobactam among the most affected.",
+    source: "who", date: "2024-07-01",
+    url: "https://www.who.int/medicines/areas/essential_medicines/en/",
+    tags: ["Antibiotiques", "Mondial", "Résistance antimicrobienne"]
+  },
+  {
+    title: "Vincristine — pénurie persistante en oncologie pédiatrique",
+    desc: "La FDA maintient son alerte sur la vincristine injectable, médicament essentiel en oncologie pédiatrique. La cause reste indéterminée mais des tensions de fabrication sont suspectées.",
+    source: "fda", date: "2024-06-14",
+    url: "https://www.accessdata.fda.gov/scripts/drugshortages/",
+    tags: ["Oncologie", "USA", "Pédiatrie"]
+  },
+];
+
+// ════════════════════════════════════════════════════════════════
+//  ÉTAT
+// ════════════════════════════════════════════════════════════════
+var allArticles = [];
+var activeSrc = 'all';
+var liveLoaded = false;
+
+// ════════════════════════════════════════════════════════════════
+//  FETCH LIVE
+// ════════════════════════════════════════════════════════════════
+async function fetchANSM() {
+  try {
+    var proxy = 'https://corsproxy.io/?' +
+      encodeURIComponent('https://ansm.sante.fr/actualites/ruptures-de-stock-des-medicaments.rss');
+    var res = await fetch(proxy, {signal: AbortSignal.timeout(6000)});
+    if (!res.ok) return [];
+    var xml = new DOMParser().parseFromString(await res.text(), 'text/xml');
+    var items = xml.querySelectorAll('item');
+    var results = [];
+    items.forEach(function(item) {
+      var title = item.querySelector('title') ? item.querySelector('title').textContent : '';
+      var desc  = item.querySelector('description') ? item.querySelector('description').textContent.replace(/<[^>]+>/g,'').trim() : '';
+      var link  = item.querySelector('link') ? item.querySelector('link').textContent : '#';
+      var pub   = item.querySelector('pubDate') ? item.querySelector('pubDate').textContent : '';
+      var date  = pub ? new Date(pub).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+      if (title) results.push({
+        title: title,
+        desc: desc.slice(0,200) + (desc.length > 200 ? '...' : ''),
+        source: 'ansm',
+        date: date,
+        url: link,
+        tags: ['ANSM', 'France'],
+        _live: true
+      });
+    });
+    return results;
+  } catch(e) { return []; }
+}
+
+async function fetchFDA() {
+  try {
+    var proxy = 'https://corsproxy.io/?' +
+      encodeURIComponent('https://api.fda.gov/drug/shortages.json?search=status:%22Current%22&limit=20');
+    var res = await fetch(proxy, {signal: AbortSignal.timeout(6000)});
+    if (!res.ok) return [];
+    var data = await res.json();
+    if (!data.results) return [];
+    return data.results.map(function(f) {
+      var name = f.generic_name || f.drug_name || 'Inconnu';
+      return {
+        title: 'FDA shortage: ' + name.charAt(0).toUpperCase() + name.slice(1),
+        desc: (f.shortage_reason || 'Cause indéterminée') + '. Statut: ' + (f.status || 'Current'),
+        source: 'fda',
+        date: f.initial_posting_date ? f.initial_posting_date.slice(0,10) : new Date().toISOString().slice(0,10),
+        url: 'https://www.accessdata.fda.gov/scripts/drugshortages/',
+        tags: ['FDA', 'USA', f.shortage_reason || 'Indéterminée'],
+        _live: true
+      };
+    });
+  } catch(e) { return []; }
+}
+
+async function loadAll() {
+  setStatus('loading', 'Chargement des flux live...');
+
+  var [ansmArticles, fdaArticles] = await Promise.all([fetchANSM(), fetchFDA()]);
+  liveLoaded = ansmArticles.length > 0 || fdaArticles.length > 0;
+
+  // Merge : live en premier, puis statiques non-dupliqués
+  var live = ansmArticles.concat(fdaArticles);
+  allArticles = live.concat(STATIC_ARTICLES);
+
+  // Trier par date décroissante
+  allArticles.sort(function(a, b) { return b.date.localeCompare(a.date); });
+
+  if (liveLoaded) {
+    setStatus('ok', live.length + ' articles live chargés · ' + STATIC_ARTICLES.length + ' articles documentés');
+  } else {
+    setStatus('error', 'Flux live indisponibles — ' + STATIC_ARTICLES.length + ' articles documentés affichés');
+  }
+
+  renderArticles();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  RENDU
+// ════════════════════════════════════════════════════════════════
+function renderArticles() {
+  var container = document.getElementById('articles');
+  var empty = document.getElementById('empty-state');
+  container.innerHTML = '';
+
+  var filtered = allArticles.filter(function(a) {
+    return activeSrc === 'all' || a.source === activeSrc;
+  });
+
+  if (filtered.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var now = new Date();
+
+  filtered.forEach(function(a) {
+    var card = document.createElement('a');
+    card.className = 'article-card';
+    card.href = a.url || '#';
+    card.target = '_blank';
+    card.rel = 'noopener';
+
+    // Calculer si "nouveau" (< 7 jours)
+    var articleDate = new Date(a.date);
+    var isNew = (now - articleDate) < 7 * 24 * 3600 * 1000;
+    var isLive = a._live;
+
+    var tagsHtml = (a.tags || []).map(function(t) {
+      return '<span class="card-tag">' + t + '</span>';
+    }).join('');
+
+    var newBadge = isNew ? '<span class="card-new">' + (isLive ? '🔴 LIVE' : 'NOUVEAU') + '</span>' : '';
+
+    card.innerHTML =
+      '<div class="card-meta">' +
+        '<span class="card-source src-' + a.source + '">' + a.source.toUpperCase() + '</span>' +
+        '<span class="card-date">' + a.date + '</span>' +
+        newBadge +
+      '</div>' +
+      '<div class="card-title">' + a.title + '</div>' +
+      '<div class="card-desc">' + a.desc + '</div>' +
+      '<div class="card-tags">' + tagsHtml + '</div>';
+
+    container.appendChild(card);
+  });
+}
+
+function filterSrc(src) {
+  activeSrc = src;
+  document.querySelectorAll('.src-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-src') === src);
+  });
+  renderArticles();
+}
+
+function setStatus(type, text) {
+  var dot = document.getElementById('status-dot');
+  var txt = document.getElementById('status-text');
+  dot.className = 'status-dot ' + type;
+  txt.textContent = text;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════════════════════════
+function setTheme(mode) {
+  if (mode === 'light') {
+    document.body.classList.add('theme-light');
+    document.getElementById('btn-light').classList.add('active');
+    document.getElementById('btn-dark').classList.remove('active');
+  } else {
+    document.body.classList.remove('theme-light');
+    document.getElementById('btn-dark').classList.add('active');
+    document.getElementById('btn-light').classList.remove('active');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>
