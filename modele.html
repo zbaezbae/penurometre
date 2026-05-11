@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Pénuromètre — Modèle</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=Manrope:wght@500;900&display=swap');
+
+  :root {
+    --bg: #050810;
+    --bg2: #080d1a;
+    --cold: #4fc3f7;
+    --cold-dim: #1a4a6b;
+    --critical: #ff3d57;
+    --tension: #ff9800;
+    --watch: #ffd600;
+    --ok: #00e5a0;
+    --text: #c8d8e8;
+    --text-dim: #4a6070;
+    --panel: rgba(8, 16, 32, 0.85);
+    --border: rgba(79, 195, 247, 0.15);
+  }
+
+  body.theme-light {
+    --bg: #f0f4f8;
+    --bg2: #e4ecf4;
+    --cold: #0070b8;
+    --cold-dim: #b0cce4;
+    --critical: #d32f2f;
+    --tension: #e65100;
+    --watch: #f9a825;
+    --ok: #2e7d32;
+    --text: #1a2b3c;
+    --text-dim: #5a7080;
+    --panel: rgba(255,255,255,0.92);
+    --border: rgba(0,112,184,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    cursor: default;
+  }
+
+  /* ─── NAV ─── */
+  #nav-bar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 4px;
+    backdrop-filter: blur(12px);
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .nav-btn:hover { color: var(--text); background: rgba(128,128,128,0.1); }
+  .nav-btn.active { background: var(--cold); color: #fff; }
+  body.theme-light .nav-btn.active { background: var(--cold); color: #fff; }
+
+  /* ─── THEME TOGGLE ─── */
+  #theme-toggle {
+    position: fixed;
+    top: 58px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px;
+    backdrop-filter: blur(8px);
+  }
+
+  .theme-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    transition: background 0.15s;
+    line-height: 1;
+  }
+
+  .theme-btn:hover { background: rgba(128,128,128,0.15); }
+  .theme-btn.active { background: var(--cold); }
+
+  /* ─── HEADER ─── */
+  #header {
+    padding: 88px 40px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  #logo h1 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 22px;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  #logo h1 .part1 { font-weight: 500; color: #4fc3f7; }
+  #logo h1 .part2 { font-weight: 900; color: #ffffff; }
+  body.theme-light #logo h1 .part1 { color: #0070b8; }
+  body.theme-light #logo h1 .part2 { color: #0a0a0a; }
+
+  #logo p {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  #main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* ─── PAGE TITLE ─── */
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 36px;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+
+  .page-subtitle {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 40px;
+  }
+
+  /* ─── SECTION LABELS ─── */
+  .section-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── COLAB BADGE BLOCK ─── */
+  #colab-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    backdrop-filter: blur(12px);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .colab-info h2 {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .colab-info p {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    max-width: 440px;
+  }
+
+  .colab-info .stack-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .stack-tag {
+    font-size: 8px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    background: rgba(79,195,247,0.08);
+    border: 1px solid rgba(79,195,247,0.2);
+    color: var(--cold);
+  }
+
+  .colab-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Badge Colab officiel */
+  .colab-badge {
+    display: inline-block;
+    text-decoration: none;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+
+  .colab-badge:hover { transform: translateY(-2px); opacity: 0.9; }
+
+  .colab-badge img {
+    height: 28px;
+    display: block;
+  }
+
+  /* Bouton Notebook custom */
+  .notebook-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(79,195,247,0.08);
+    border: 1px solid rgba(79,195,247,0.3);
+    color: var(--cold);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .notebook-btn:hover {
+    background: rgba(79,195,247,0.15);
+    border-color: var(--cold);
+  }
+
+  body.theme-light .notebook-btn {
+    background: rgba(0,112,184,0.06);
+    border-color: rgba(0,112,184,0.25);
+    color: var(--cold);
+  }
+
+  /* ─── MÉTRIQUES MODÈLE ─── */
+  #metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .metric-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 18px 16px;
+    backdrop-filter: blur(8px);
+    text-align: center;
+  }
+
+  .metric-val {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 900;
+    font-size: 28px;
+    color: var(--cold);
+    letter-spacing: -1px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .metric-val.red  { color: var(--critical); }
+  .metric-val.orange { color: var(--tension); }
+  .metric-val.green { color: var(--ok); }
+
+  .metric-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ─── VARIABLES ─── */
+  #variables-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    backdrop-filter: blur(12px);
+    margin-bottom: 48px;
+  }
+
+  .var-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(79,195,247,0.05);
+  }
+
+  .var-row:last-child { border-bottom: none; }
+
+  .var-name {
+    font-size: 10px;
+    color: var(--cold);
+    font-weight: 700;
+    white-space: nowrap;
+    min-width: 160px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .var-desc {
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ─── IMAGES GRID ─── */
+  #images-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 48px;
+  }
+
+  .img-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s;
+  }
+
+  .img-card:hover { border-color: rgba(79,195,247,0.35); }
+
+  .img-card img {
+    width: 100%;
+    height: 220px;
+    object-fit: contain;
+    background: #080d1a;
+    display: block;
+    padding: 8px;
+  }
+
+  body.theme-light .img-card img { background: #f8f8f8; }
+
+  .img-caption {
+    padding: 10px 14px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+  }
+
+  .img-caption span {
+    color: var(--cold);
+    font-weight: 700;
+  }
+
+  /* ─── NOTE MÉTHODOLOGIQUE ─── */
+  #method-note {
+    background: rgba(79,195,247,0.04);
+    border: 1px solid rgba(79,195,247,0.12);
+    padding: 20px 24px;
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    letter-spacing: 0.3px;
+  }
+
+  #method-note strong {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  /* ─── SCANLINES ─── */
+  #scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+    );
+  }
+
+  body.theme-light #scanlines { display: none; }
+
+  #vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.5) 100%);
+  }
+
+  body.theme-light #vignette { opacity: 0.2; }
+
+  #main { position: relative; z-index: 2; }
+  #header { position: relative; z-index: 2; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 700px) {
+    #metrics-row { grid-template-columns: repeat(2, 1fr); }
+    #images-grid { grid-template-columns: 1fr; }
+    #colab-block { flex-direction: column; }
+    .colab-actions { align-items: flex-start; }
+    #main { padding: 32px 20px 60px; }
+  }
+</style>
+</head>
+<body class="theme-light">
+
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<!-- NAV -->
+<div id="nav-bar">
+  <a class="nav-btn" href="index.html">🌍 Globe</a>
+  <a class="nav-btn" href="actualites.html">📰 Actualités</a>
+  <a class="nav-btn active" href="modele.html">📊 Modèle</a>
+  <div style="width:8px;height:8px;border-radius:50%;background:#444;margin:0 4px;"></div>
+</div>
+
+<!-- THEME TOGGLE -->
+<div id="theme-toggle">
+  <button class="theme-btn active" id="btn-light" onclick="setTheme('light')" title="Mode clair">☀️</button>
+  <button class="theme-btn" id="btn-dark" onclick="setTheme('dark')" title="Mode sobre">🌙</button>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <a href="index.html" style="text-decoration:none;pointer-events:all">
+    <div id="logo">
+      <h1><span class="part1">pénuro</span><span class="part2">mètre</span></h1>
+      <p>Surveillance mondiale des pénuries médicamenteuses</p>
+    </div>
+  </a>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <div class="page-title">Modèle prédictif</div>
+  <div class="page-subtitle">Scoring de risque · Régression logistique · Random Forest · SHAP</div>
+
+  <!-- SECTION : COLAB -->
+  <div class="section-label">Notebook interactif</div>
+  <div id="colab-block">
+    <div class="colab-info">
+      <h2>Pénuromètre — Annexe analytique</h2>
+      <p>
+        Modèle d'apprentissage automatique entraîné sur 45 pénuries documentées.
+        Le notebook reproduit l'ensemble de la chaîne : données, prétraitement,
+        entraînement, validation croisée, scores SHAP et exports JSON vers le globe.
+      </p>
+      <div class="stack-tags">
+        <span class="stack-tag">Python</span>
+        <span class="stack-tag">scikit-learn</span>
+        <span class="stack-tag">SHAP</span>
+        <span class="stack-tag">pandas</span>
+        <span class="stack-tag">openFDA</span>
+        <span class="stack-tag">ANSM</span>
+      </div>
+    </div>
+    <div class="colab-actions">
+      <a class="colab-badge"
+         href="https://colab.research.google.com/github/zbaezbae/penurometre/blob/main/penurometre_colab_annexe.ipynb"
+         target="_blank" rel="noopener">
+        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+      </a>
+      <a class="notebook-btn"
+         href="penurometre_colab_annexe.ipynb"
+         target="_blank">
+        ↓ Télécharger .ipynb
+      </a>
+    </div>
+  </div>
+
+  <!-- SECTION : MÉTRIQUES -->
+  <div class="section-label">Performances du modèle</div>
+  <div id="metrics-row">
+    <div class="metric-card">
+      <div class="metric-val">45</div>
+      <div class="metric-label">Observations</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val green">~0.84</div>
+      <div class="metric-label">AUC-ROC (LR)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val green">~0.88</div>
+      <div class="metric-label">AUC-ROC (RF)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val orange">7</div>
+      <div class="metric-label">Variables</div>
+    </div>
+  </div>
+
+  <!-- SECTION : VARIABLES -->
+  <div class="section-label">Variables explicatives</div>
+  <div id="variables-block">
+    <div class="var-row">
+      <span class="var-name">concentration_fab</span>
+      <span class="var-desc">Part de production concentrée chez le fabricant principal (%)</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">nb_fabricants</span>
+      <span class="var-desc">Nombre de fabricants alternatifs disponibles dans le monde</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">dependance_asie</span>
+      <span class="var-desc">Part du principe actif produit en Chine ou en Inde (%)</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">anciennete</span>
+      <span class="var-desc">Ancienneté du médicament sur le marché (années)</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">est_generique</span>
+      <span class="var-desc">Médicament générique (1) ou princeps (0)</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">classe_encoded</span>
+      <span class="var-desc">Classe thérapeutique encodée numériquement</span>
+    </div>
+    <div class="var-row">
+      <span class="var-name">cause_connue</span>
+      <span class="var-desc">Cause de pénurie historiquement documentée (1) ou indéterminée (0)</span>
+    </div>
+  </div>
+
+  <!-- SECTION : VISUALISATIONS -->
+  <div class="section-label">Visualisations exportées</div>
+  <div id="images-grid">
+
+    <div class="img-card">
+      <img src="exports/shap_importance.png" alt="SHAP importance des variables" loading="lazy">
+      <div class="img-caption"><span>Fig. 1</span> — Importance SHAP des variables</div>
+    </div>
+
+    <div class="img-card">
+      <img src="exports/scatter_risk.png" alt="Nuage de points score de risque" loading="lazy">
+      <div class="img-caption"><span>Fig. 2</span> — Score de risque par médicament</div>
+    </div>
+
+    <div class="img-card">
+      <img src="exports/correlation_heatmap.png" alt="Heatmap de corrélation" loading="lazy">
+      <div class="img-caption"><span>Fig. 3</span> — Corrélations entre variables explicatives</div>
+    </div>
+
+    <div class="img-card">
+      <img src="exports/risk_distribution.png" alt="Distribution des scores par sévérité" loading="lazy">
+      <div class="img-caption"><span>Fig. 4</span> — Distribution des scores par niveau de sévérité</div>
+    </div>
+
+  </div>
+
+  <!-- NOTE MÉTHODOLOGIQUE -->
+  <div id="method-note">
+    <strong>Note méthodologique.</strong>
+    Le dataset comprend 45 observations issues de sources documentées (openFDA, ANSM, EMA).
+    Les modèles (régression logistique et random forest) sont à visée exploratoire et pédagogique.
+    La validation est réalisée par cross-validation stratifiée (5 folds).
+    Les résultats ne constituent pas une étude épidémiologique exhaustive.
+    Le notebook complet est reproductible sur Google Colab sans installation locale.
+    <br><br>
+    <strong>Références théoriques :</strong>
+    Arrow (1963) — asymétrie d'information &nbsp;·&nbsp; Akerlof (1970) — marchés des lemons.
+  </div>
+
+</div>
+
+<script>
+function setTheme(mode) {
+  if (mode === 'light') {
+    document.body.classList.add('theme-light');
+    document.getElementById('btn-light').classList.add('active');
+    document.getElementById('btn-dark').classList.remove('active');
+  } else {
+    document.body.classList.remove('theme-light');
+    document.getElementById('btn-dark').classList.add('active');
+    document.getElementById('btn-light').classList.remove('active');
+  }
+}
+</script>
+</body>
+</html>
